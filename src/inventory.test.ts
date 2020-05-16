@@ -42,6 +42,29 @@ describe('InventoryController', () => {
         expect(controller).toBeTruthy();
     });
     /**
+     * Generate a stick item for testing.
+     * @param v Not used.
+     * @param index The index of an array, used to generate stick id.
+     */
+    const generateStick = (v: any, index: number): INetworkObject => {
+        return {
+            id: `stick-${index}`,
+            x: 0,
+            y: 0,
+            objectType: ENetworkObjectType.STICK,
+            lastUpdate: new Date().toISOString(),
+            grabbedByNpcId: null,
+            grabbedByPersonId: null,
+            isInInventory: false,
+            health: {
+                rate: 0,
+                max: 1,
+                value: 1,
+            },
+            amount: 1,
+        };
+    };
+    /**
      * Attempt ot craft a wattle. This function could fail.
      * @param numberOfSticks The number of sticks to pickup before crafting.
      */
@@ -49,26 +72,7 @@ describe('InventoryController', () => {
         const controller = new InventoryController(person);
 
         // pick up a bunch of sticks
-        const sticks: INetworkObject[] = new Array(numberOfSticks).fill(0).map(
-            (v, index): INetworkObject => {
-                return {
-                    id: `stick-${index}`,
-                    x: 0,
-                    y: 0,
-                    objectType: ENetworkObjectType.STICK,
-                    lastUpdate: new Date().toISOString(),
-                    grabbedByNpcId: null,
-                    grabbedByPersonId: null,
-                    isInInventory: false,
-                    health: {
-                        rate: 0,
-                        max: 1,
-                        value: 1,
-                    },
-                    amount: 1,
-                };
-            },
-        );
+        const sticks: INetworkObject[] = new Array(numberOfSticks).fill(0).map(generateStick);
         let i: number = 0;
         for (const stick of sticks) {
             // pick up the stick
@@ -140,5 +144,29 @@ describe('InventoryController', () => {
     });
     it('should pick up 101 sticks (not enough inventory space)', () => {
         expect(() => craftWattle(101)).toThrow('Not enough room for item');
+    });
+    it('should generate a pick up item request', () => {
+        const controller = new InventoryController(person);
+        const item = generateStick(0, 0);
+        expect(controller.pickUpItemRequest(person, item)).toEqual({
+            personId: person.id,
+            objectId: item.id,
+        });
+    });
+    it('should generate a drop item request', () => {
+        const controller = new InventoryController(person);
+        const item = generateStick(0, 0);
+        expect(controller.dropItemRequest(person, item)).toEqual({
+            personId: person.id,
+            objectId: item.id,
+        });
+    });
+    it('should generate a pick up item request', () => {
+        const controller = new InventoryController(person);
+        const recipe = listOfRecipes.find((r) => r.product === ENetworkObjectType.WATTLE_WALL) as ICraftingRecipe;
+        expect(controller.craftItemRequest(person, recipe)).toEqual({
+            personId: person.id,
+            recipeProduct: recipe.product,
+        });
     });
 });

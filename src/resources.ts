@@ -59,6 +59,11 @@ export class HarvestResourceController {
             state: resource.spawnState,
         });
 
+        // it is invalid for a resource to have no spawns
+        if (resource.spawns.length === 0) {
+            throw new Error('Resource with an empty spawn list');
+        }
+
         // the total cumulative probability, multiplied against random to get a value between 0 and sum cumulative probability.
         this.sumCumulativeProbability = resource.spawns.reduce((acc: number, s: IResourceSpawn): number => {
             return acc + s.probability;

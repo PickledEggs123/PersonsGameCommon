@@ -60,6 +60,15 @@ describe('HarvestResourceController', () => {
                 );
             }
         });
+        it('should throw on empty spawn list', () => {
+            expect(() => {
+                const controller = new HarvestResourceController({
+                    ...resource,
+                    spawns: [],
+                });
+                expect(controller).toBeFalsy();
+            }).toThrow('Resource with an empty spawn list');
+        });
         it('should resume rng cycle using saveState()', () => {
             const controller1 = new HarvestResourceController(resource);
             spawnNItems(controller1, 5);

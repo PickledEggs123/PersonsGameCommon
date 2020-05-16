@@ -1,4 +1,14 @@
-import { getMaxStackSize, ICraftingRecipe, INetworkObject, INpc, IPerson, IPersonsInventory } from './types/GameTypes';
+import {
+    getMaxStackSize,
+    IApiPersonsObjectCraftPost,
+    IApiPersonsObjectDropPost,
+    IApiPersonsObjectPickUpPost,
+    ICraftingRecipe,
+    INetworkObject,
+    INpc,
+    IPerson,
+    IPersonsInventory,
+} from './types/GameTypes';
 
 /**
  * A class which can handle inventory operations like picking up an item or dropping an item or crafting an item.
@@ -143,6 +153,18 @@ export class InventoryController {
     }
 
     /**
+     * Return the post request used to create a pick up item request.
+     * @param person The person picking up an item.
+     * @param networkObject The item to pick up.
+     */
+    pickUpItemRequest(person: IPerson, networkObject: INetworkObject): IApiPersonsObjectPickUpPost {
+        return {
+            personId: person.id,
+            objectId: networkObject.id,
+        };
+    }
+
+    /**
      * The item to drop from the inventory.
      * @param itemToDrop The item to drop.
      * @return A copy of the new item state. The function will return a new item since it is no longer part of the inventory
@@ -161,6 +183,18 @@ export class InventoryController {
         // update inventory and item
         this.slots = slotsWithoutItem;
         return itemToDropState;
+    }
+
+    /**
+     * Create a network post request for dropping an item.
+     * @param person The person dropping an item.
+     * @param networkObject The item to drop.
+     */
+    dropItemRequest(person: IPerson, networkObject: INetworkObject): IApiPersonsObjectDropPost {
+        return {
+            personId: person.id,
+            objectId: networkObject.id,
+        };
     }
 
     /**
@@ -212,7 +246,7 @@ export class InventoryController {
     /**
      * Convert items in the inventory into another item.
      */
-    craftItem(recipe: ICraftingRecipe) {
+    craftItem(recipe: ICraftingRecipe): INetworkObject {
         const slotsAfterCrafting = this.getSlotsAfterCraftingMaterials(recipe);
         // there was enough materials to craft the recipe
 
@@ -237,5 +271,18 @@ export class InventoryController {
             },
         };
         this.pickUpItemInternal(recipeItem, slotsAfterCrafting);
+        return recipeItem;
+    }
+
+    /**
+     * Create a crafting api request for crafting an item.
+     * @param person The person crafting an item.
+     * @param recipe The recipe to craft.
+     */
+    craftItemRequest(person: IPerson, recipe: ICraftingRecipe): IApiPersonsObjectCraftPost {
+        return {
+            personId: person.id,
+            recipeProduct: recipe.product,
+        };
     }
 }

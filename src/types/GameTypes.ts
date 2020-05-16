@@ -855,6 +855,14 @@ export interface IApiPersonsObjectDropPost {
 }
 
 /**
+ * The HTTP /persons/object/craft post request.
+ */
+export interface IApiPersonsObjectCraftPost {
+    personId: string;
+    recipeProduct: ENetworkObjectType;
+}
+
+/**
  * Base voice message format.
  */
 export interface IApiVoiceMessage {
