@@ -24,6 +24,32 @@ export interface IInventoryTransaction {
      * it could go into an existing slot.
      */
     stackableSlots: INetworkObject[];
+    /**
+     * A list of slots which were deleted. An example is crafting which can delete slots by using the entire stack.
+     */
+    deletedSlots: string[];
+    /**
+     * A list of modified slots. An example is crafting which can use half of a stack. The slot must also be updated.
+     */
+    modifiedSlots: INetworkObject[];
+}
+
+/**
+ * The slot changes made while crafting an item.
+ */
+export interface ICraftingTransaction {
+    /**
+     * The new array of slots after crafting is complete.
+     */
+    newSlots: INetworkObject[];
+    /**
+     * The ids of slots that have been deleted.
+     */
+    deletedSlots: string[];
+    /**
+     * The slots which have been modified, such as a partially used stack during crafting.
+     */
+    modifiedSlots: INetworkObject[];
 }
 
 /**
@@ -124,10 +150,7 @@ export class InventoryController {
                     (acc: INetworkObject[], slot: INetworkObject): INetworkObject[] => {
                         if (slot.id === stackableSlot.id) {
                             // found matching stackable slot, add amounts
-                            return [
-                                ...acc,
-                                newStackableSlot,
-                            ];
+                            return [...acc, newStackableSlot];
                         } else {
                             // did not find matching slot, append unmodified slot
                             return [...acc, slot];
@@ -139,7 +162,9 @@ export class InventoryController {
                 // original item was destroyed, instead it was stored in a stackable slot
                 return {
                     updatedItem: null,
-                    stackableSlots: [newStackableSlot]
+                    stackableSlots: [newStackableSlot],
+                    deletedSlots: [],
+                    modifiedSlots: [],
                 };
                 // done
             } else {
@@ -155,7 +180,9 @@ export class InventoryController {
                 // appended item, the item still exists, return item to update item
                 return {
                     updatedItem: updatedItemToPickUp,
-                    stackableSlots: []
+                    stackableSlots: [],
+                    deletedSlots: [],
+                    modifiedSlots: [],
                 };
                 // done
             }
@@ -207,7 +234,9 @@ export class InventoryController {
         this.slots = slotsWithoutItem;
         return {
             updatedItem: itemToDropState,
-            stackableSlots: []
+            stackableSlots: [],
+            deletedSlots: [],
+            modifiedSlots: [],
         };
     }
 
@@ -238,8 +267,9 @@ export class InventoryController {
      * Subtract crafting materials from inventory slots.
      * @param recipe The recipe to process.
      */
-    private getSlotsAfterCraftingMaterials(recipe: ICraftingRecipe): INetworkObject[] {
+    private getSlotsAfterCraftingMaterials(recipe: ICraftingRecipe): ICraftingTransaction {
         const copyOfSlots = this.slots.map((slot) => ({ ...slot }));
+        const modifiedSlots: INetworkObject[] = [];
 
         // for each recipe item
         for (const recipeItem of recipe.items) {
@@ -256,6 +286,11 @@ export class InventoryController {
                     slot.amount -= amountToUse;
                     slot.lastUpdate = new Date().toISOString();
                     recipeItemAmountLeft -= amountToUse;
+
+                    // add a modified slot if it is not in a list of already modified slots
+                    if (!modifiedSlots.map((s) => s.id).includes(slot.id)) {
+                        modifiedSlots.push(slot);
+                    }
                 }
             }
 
@@ -266,14 +301,23 @@ export class InventoryController {
         }
 
         // remove empty slots
-        return copyOfSlots.filter((slot) => slot.amount > 0);
+        return {
+            // new slots are all slots which have more than 0 items
+            newSlots: copyOfSlots.filter((slot) => slot.amount > 0),
+            // deleted slots are slots which have 0 items
+            deletedSlots: copyOfSlots.filter((slot) => slot.amount === 0).map((slot) => slot.id),
+            // modified slots are slots which were modified and still have items
+            modifiedSlots: modifiedSlots.filter((slot) => slot.amount > 0),
+        };
     }
 
     /**
      * Convert items in the inventory into another item.
      */
     craftItem(recipe: ICraftingRecipe): IInventoryTransaction {
-        const slotsAfterCrafting = this.getSlotsAfterCraftingMaterials(recipe);
+        const { newSlots: slotsAfterCrafting, deletedSlots, modifiedSlots } = this.getSlotsAfterCraftingMaterials(
+            recipe,
+        );
         // there was enough materials to craft the recipe
 
         const id = new Array(10)
@@ -296,7 +340,11 @@ export class InventoryController {
                 value: 1,
             },
         };
-        return this.pickUpItemInternal(recipeItem, slotsAfterCrafting);
+        return {
+            ...this.pickUpItemInternal(recipeItem, slotsAfterCrafting),
+            deletedSlots,
+            modifiedSlots,
+        };
     }
 
     /**

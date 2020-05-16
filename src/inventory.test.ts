@@ -76,10 +76,7 @@ describe('InventoryController', () => {
         let i: number = 0;
         for (const stick of sticks) {
             // pick up the stick
-            const {
-                updatedItem,
-                stackableSlots
-            } = controller.pickUpItem(stick);
+            const { updatedItem, stackableSlots } = controller.pickUpItem(stick);
 
             if (i % getMaxStackSize(stick.objectType) === 0) {
                 // first stick in stack should return an updated item
@@ -95,10 +92,12 @@ describe('InventoryController', () => {
             } else {
                 // other sticks that were added to stack should return stack.
                 expect(updatedItem).toBeNull();
-                expect(stackableSlots).toEqual([expect.objectContaining({
-                    objectType: stick.objectType,
-                    amount: (i % getMaxStackSize(stick.objectType)) + 1
-                })]);
+                expect(stackableSlots).toEqual([
+                    expect.objectContaining({
+                        objectType: stick.objectType,
+                        amount: (i % getMaxStackSize(stick.objectType)) + 1,
+                    }),
+                ]);
             }
             i += 1;
         }
