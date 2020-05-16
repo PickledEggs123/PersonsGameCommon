@@ -11,6 +11,22 @@ import {
 } from './types/GameTypes';
 
 /**
+ * When performing a pickup, drop, or craft, it will affect multiple objects.
+ */
+export interface IInventoryTransaction {
+    /**
+     * The updated copy of the original item used in the pickup, drop, or craft. If it is null,
+     * the original item was deleted.
+     */
+    updatedItem: INetworkObject | null;
+    /**
+     * A list of inventory slot objects that were affected. If you pick up an item, instead of going into a new slot,
+     * it could go into an existing slot.
+     */
+    stackableSlots: INetworkObject[];
+}
+
+/**
  * A class which can handle inventory operations like picking up an item or dropping an item or crafting an item.
  */
 export class InventoryController {
@@ -75,7 +91,7 @@ export class InventoryController {
     private pickUpItemInternal(
         itemToPickUp: INetworkObject,
         slots: INetworkObject[] = this.slots,
-    ): INetworkObject | null {
+    ): IInventoryTransaction {
         // find a stackable slot, which is a slot of the same item type with an amount less than the max stack size
         const stackableSlot: INetworkObject | undefined = slots.find((slot) => {
             return (
@@ -94,6 +110,15 @@ export class InventoryController {
 
             // depending on if a stackable slot was found or if an empty slot was found
             if (stackableSlot) {
+                const newStackableSlot = {
+                    ...stackableSlot,
+                    // add amounts, a stack of 5 sticks and picking up 5 more sticks should result in a stack of 10 sticks
+                    amount: stackableSlot.amount + itemToPickUp.amount,
+                    isInInventory: true,
+                    grabbedByPersonId: this.isPerson ? this.inventoryHolder.id : null,
+                    grabbedByNpcId: this.isNpc ? this.inventoryHolder.id : null,
+                    lastUpdate: new Date().toISOString(),
+                };
                 // found stackable slot, we're stacking the item, perform stack pick up
                 this.slots = slotsWithoutItemToPickup.reduce(
                     (acc: INetworkObject[], slot: INetworkObject): INetworkObject[] => {
@@ -101,15 +126,7 @@ export class InventoryController {
                             // found matching stackable slot, add amounts
                             return [
                                 ...acc,
-                                {
-                                    ...slot,
-                                    // add amounts, a stack of 5 sticks and picking up 5 more sticks should result in a stack of 10 sticks
-                                    amount: slot.amount + itemToPickUp.amount,
-                                    isInInventory: true,
-                                    grabbedByPersonId: this.isPerson ? this.inventoryHolder.id : null,
-                                    grabbedByNpcId: this.isNpc ? this.inventoryHolder.id : null,
-                                    lastUpdate: new Date().toISOString(),
-                                },
+                                newStackableSlot,
                             ];
                         } else {
                             // did not find matching slot, append unmodified slot
@@ -119,8 +136,11 @@ export class InventoryController {
                     [],
                 );
 
-                // original item was destroyed, return null, must also destroy original item
-                return null;
+                // original item was destroyed, instead it was stored in a stackable slot
+                return {
+                    updatedItem: null,
+                    stackableSlots: [newStackableSlot]
+                };
                 // done
             } else {
                 // found empty slot, we're appending the item, append to inventory slots
@@ -133,7 +153,10 @@ export class InventoryController {
                 };
                 this.slots = [...slotsWithoutItemToPickup, updatedItemToPickUp];
                 // appended item, the item still exists, return item to update item
-                return updatedItemToPickUp;
+                return {
+                    updatedItem: updatedItemToPickUp,
+                    stackableSlots: []
+                };
                 // done
             }
         } else {
@@ -148,7 +171,7 @@ export class InventoryController {
      * @returns Updated item, must update original item.
      * @returns null, must destroy original item.
      */
-    pickUpItem(itemToPickUp: INetworkObject): INetworkObject | null {
+    pickUpItem(itemToPickUp: INetworkObject): IInventoryTransaction {
         return this.pickUpItemInternal(itemToPickUp);
     }
 
@@ -169,7 +192,7 @@ export class InventoryController {
      * @param itemToDrop The item to drop.
      * @return A copy of the new item state. The function will return a new item since it is no longer part of the inventory
      */
-    dropItem(itemToDrop: INetworkObject): INetworkObject {
+    dropItem(itemToDrop: INetworkObject): IInventoryTransaction {
         // remove item from inventory slots
         const slotsWithoutItem = this.slots.filter((slot) => slot.id !== itemToDrop.id);
         const itemToDropState = {
@@ -182,7 +205,10 @@ export class InventoryController {
 
         // update inventory and item
         this.slots = slotsWithoutItem;
-        return itemToDropState;
+        return {
+            updatedItem: itemToDropState,
+            stackableSlots: []
+        };
     }
 
     /**
@@ -246,7 +272,7 @@ export class InventoryController {
     /**
      * Convert items in the inventory into another item.
      */
-    craftItem(recipe: ICraftingRecipe): INetworkObject {
+    craftItem(recipe: ICraftingRecipe): IInventoryTransaction {
         const slotsAfterCrafting = this.getSlotsAfterCraftingMaterials(recipe);
         // there was enough materials to craft the recipe
 
@@ -270,8 +296,7 @@ export class InventoryController {
                 value: 1,
             },
         };
-        this.pickUpItemInternal(recipeItem, slotsAfterCrafting);
-        return recipeItem;
+        return this.pickUpItemInternal(recipeItem, slotsAfterCrafting);
     }
 
     /**
