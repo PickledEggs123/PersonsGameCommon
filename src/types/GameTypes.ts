@@ -180,6 +180,14 @@ export interface IPerson extends INetworkObject {
      * The inventory for the person.
      */
     inventory: IPersonsInventory;
+    /**
+     * Crafting Seed for crafted item ids.
+     */
+    craftingSeed: string;
+    /**
+     * The state of the crafting item id rng.
+     */
+    craftingState: seedrandom.State | true;
 }
 
 /**

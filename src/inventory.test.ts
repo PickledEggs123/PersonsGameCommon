@@ -35,6 +35,8 @@ describe('InventoryController', () => {
             columns: 10,
             slots: [],
         },
+        craftingSeed: 'craftingSeed',
+        craftingState: true,
     };
 
     it('should create inventory controller', () => {
@@ -106,7 +108,9 @@ describe('InventoryController', () => {
         const recipe: ICraftingRecipe = listOfRecipes.find(
             (r) => r.product === ENetworkObjectType.WATTLE_WALL,
         ) as ICraftingRecipe;
+        const originalRngState = controller.getCraftingState();
         controller.craftItem(recipe);
+        expect(controller.getCraftingState()).not.toEqual(originalRngState);
         expect(controller.getInventory()).toEqual(
             expect.objectContaining({
                 rows: 1,
@@ -143,6 +147,13 @@ describe('InventoryController', () => {
                 ]),
             }),
         );
+
+        // should return information about the new rng state
+        expect(controller.getCraftingState()).toBeTruthy();
+        expect(controller.getState()).toEqual({
+            inventory: controller.getInventory(),
+            craftingState: controller.getCraftingState(),
+        });
     };
     it('should pick up 20 sticks and craft a wattle', () => craftWattle(20));
     it('should pick up 100 sticks (full inventory) and craft a wattle', () => craftWattle(100));

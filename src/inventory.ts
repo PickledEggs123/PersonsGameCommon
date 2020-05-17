@@ -9,6 +9,7 @@ import {
     IPerson,
     IPersonsInventory,
 } from './types/GameTypes';
+import * as seedrandom from 'seedrandom';
 
 /**
  * When performing a pickup, drop, or craft, it will affect multiple objects.
@@ -84,6 +85,10 @@ export class InventoryController {
      * The person or npc holding the inventory.
      */
     private inventoryHolder: IPerson | INpc;
+    /**
+     * The random number generator used to generate predictable random crafted item ids.
+     */
+    private rng: seedrandom.prng;
 
     /**
      * Use a person or npc to create an inventory controller instance. The Inventory Controller will allow simple operations
@@ -105,6 +110,11 @@ export class InventoryController {
 
         // copy inventory holder
         this.inventoryHolder = inventoryHolder;
+
+        // crafting item id rng, used to predict the next rng id of a crafted item.
+        this.rng = seedrandom.alea(inventoryHolder.craftingState === true ? inventoryHolder.craftingSeed : '', {
+            state: inventoryHolder.craftingState,
+        });
     }
 
     /**
@@ -264,6 +274,23 @@ export class InventoryController {
     }
 
     /**
+     * Get the new crafting state after generating a crafted item.
+     */
+    getCraftingState(): seedrandom.State {
+        return this.rng.state();
+    }
+
+    /**
+     * Return the total state change to the inventory holder. This combines the new inventory and crafting state.
+     */
+    getState(): Partial<IPerson | INpc> {
+        return {
+            inventory: this.getInventory(),
+            craftingState: this.getCraftingState(),
+        };
+    }
+
+    /**
      * Subtract crafting materials from inventory slots.
      * @param recipe The recipe to process.
      */
@@ -320,12 +347,8 @@ export class InventoryController {
         );
         // there was enough materials to craft the recipe
 
-        const id = new Array(10)
-            .fill(0)
-            .map(() => Math.floor(Math.random() * 36).toString(36))
-            .join('');
         const recipeItem: INetworkObject = {
-            id,
+            id: `crafted-item-${this.inventoryHolder.id}-${this.rng.int32()}`,
             x: this.inventoryHolder.x,
             y: this.inventoryHolder.y,
             objectType: recipe.product,
