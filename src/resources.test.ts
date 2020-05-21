@@ -98,4 +98,5 @@ describe('HarvestResourceController', () => {
     };
     describe('Tree resource node', () => testResource(createResource(point, ENetworkObjectType.TREE)));
     describe('Rock resource node', () => testResource(createResource(point, ENetworkObjectType.ROCK)));
+    describe('Rock resource node', () => testResource(createResource(point, ENetworkObjectType.POND)));
 });

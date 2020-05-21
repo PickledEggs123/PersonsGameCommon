@@ -36,6 +36,13 @@ export enum ENetworkObjectType {
     AXE = 'AXE',
     CHAINSAW = 'CHAINSAW',
     /**
+     * Pottery objects.
+     */
+    POND = 'POND',
+    MUD = 'MUD',
+    CLAY = 'CLAY',
+    REED = 'REED',
+    /**
      * Agriculture objects.
      */
     WHEAT = 'WHEAT',
@@ -70,12 +77,19 @@ export enum ENetworkObjectType {
 }
 
 /**
+ * A mapping of object type to stack size.
+ */
+const stackSizes: { [key: string]: number } = {
+    [ENetworkObjectType.STICK]: 10,
+    [ENetworkObjectType.WATTLE_WALL]: 4,
+};
+/**
  * The max number of items that can be stored in an object stack.
  * @param objectType
  */
 export const getMaxStackSize = (objectType: ENetworkObjectType): number => {
-    if (objectType === ENetworkObjectType.STICK) {
-        return 10;
+    if (typeof stackSizes[objectType] === 'number') {
+        return stackSizes[objectType];
     } else {
         return 1;
     }
@@ -566,7 +580,7 @@ export const listOfRecipes: ICraftingRecipe[] = [
         items: [
             {
                 item: ENetworkObjectType.STICK,
-                quantity: 20,
+                quantity: 10,
             },
         ],
         byHand: true,
@@ -1035,10 +1049,9 @@ export const TDayNightTimeHour: TDayNightTime = 60 * 10 * 1000;
 /**
  * Get the current number of milliseconds from midnight in game time.
  */
-export const getCurrentTDayNightTime = () => {
-    const now = new Date();
+export const getCurrentTDayNightTime = (time: Date = new Date()) => {
     const day = TDayNightTimeHour * 24;
-    return +now % day;
+    return +time % day;
 };
 
 /**

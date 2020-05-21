@@ -1,38 +1,71 @@
 import { ENetworkObjectType, IObject, IResource, IResourceSpawn, ITree } from './types/GameTypes';
 
+interface IResourceSpawnData {
+    objectType: ENetworkObjectType;
+    spawns: IResourceSpawn[];
+}
+const resourceSpawnData: IResourceSpawnData[] = [
+    {
+        objectType: ENetworkObjectType.TREE,
+        spawns: [
+            {
+                type: ENetworkObjectType.STICK,
+                probability: 95,
+                spawnTime: 60000,
+            },
+            {
+                type: ENetworkObjectType.WOOD,
+                probability: 5,
+                spawnTime: 60000,
+            },
+        ],
+    },
+    {
+        objectType: ENetworkObjectType.ROCK,
+        spawns: [
+            {
+                type: ENetworkObjectType.STONE,
+                probability: 70,
+                spawnTime: 60000,
+            },
+            {
+                type: ENetworkObjectType.COAL,
+                probability: 20,
+                spawnTime: 120000,
+            },
+            {
+                type: ENetworkObjectType.IRON,
+                probability: 10,
+                spawnTime: 180000,
+            },
+        ],
+    },
+    {
+        objectType: ENetworkObjectType.POND,
+        spawns: [
+            {
+                type: ENetworkObjectType.MUD,
+                probability: 80,
+                spawnTime: 10000,
+            },
+            {
+                type: ENetworkObjectType.CLAY,
+                probability: 15,
+                spawnTime: 10000,
+            },
+            {
+                type: ENetworkObjectType.REED,
+                probability: 5,
+                spawnTime: 10000,
+            },
+        ],
+    },
+];
+
 export const createResource = (point: IObject, objectType: ENetworkObjectType): IResource => {
     const { x, y } = point;
-    const spawns: IResourceSpawn[] =
-        objectType === ENetworkObjectType.TREE
-            ? [
-                  {
-                      type: ENetworkObjectType.STICK,
-                      probability: 95,
-                      spawnTime: 60000,
-                  },
-                  {
-                      type: ENetworkObjectType.WOOD,
-                      probability: 5,
-                      spawnTime: 60000,
-                  },
-              ]
-            : [
-                  {
-                      type: ENetworkObjectType.STONE,
-                      probability: 70,
-                      spawnTime: 60000,
-                  },
-                  {
-                      type: ENetworkObjectType.COAL,
-                      probability: 20,
-                      spawnTime: 120000,
-                  },
-                  {
-                      type: ENetworkObjectType.IRON,
-                      probability: 10,
-                      spawnTime: 180000,
-                  },
-              ];
+    const spawnData = resourceSpawnData.find((data) => data.objectType === objectType);
+    const spawns: IResourceSpawn[] = spawnData ? spawnData.spawns : [];
     const resource: IResource = {
         id: `resource(${x},${y})`,
         x,

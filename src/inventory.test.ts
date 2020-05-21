@@ -158,7 +158,7 @@ describe('InventoryController', () => {
     it('should pick up 20 sticks and craft a wattle', () => craftWattle(20));
     it('should pick up 100 sticks (full inventory) and craft a wattle', () => craftWattle(100));
     it('should pick up 19 sticks and fail to craft a wattle', () => {
-        expect(() => craftWattle(19)).toThrow('Not enough materials for crafting');
+        expect(() => craftWattle(9)).toThrow('Not enough materials for crafting');
     });
     it('should pick up 101 sticks (not enough inventory space)', () => {
         expect(() => craftWattle(101)).toThrow('Not enough room for item');
