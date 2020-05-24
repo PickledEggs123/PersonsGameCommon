@@ -307,6 +307,78 @@ export interface IVendor extends INetworkObject {
 }
 
 /**
+ * The type of owner of a building.
+ */
+export enum EOwnerType {
+    // the owner is a person
+    PERSON = 'PERSON',
+    // the owner is a npc
+    NPC = 'NPC',
+}
+
+/**
+ * The object which represents an owner of a wall, floor, or house.
+ */
+export interface IOwner {
+    ownerType: EOwnerType;
+    ownerId: string;
+}
+
+/**
+ * Houses provide a location for NPCs to store things, work from, and sleep.
+ */
+export interface IHouse extends INetworkObject, IOwner {
+    /**
+     * The npc id of the NPC that lives in the house.
+     */
+    npcId: string;
+}
+
+/**
+ * The direction of the wall.
+ */
+export enum EWallDirection {
+    HORIZONTAL = 'HORIZONTAL',
+    VERTICAL = 'VERTICAL',
+}
+
+/**
+ * The pattern of the wall.
+ */
+export enum EWallPattern {
+    WATTLE = 'WATTLE',
+}
+
+/**
+ * A wall instance which represent a wall tile of a house.
+ */
+export interface IWall extends INetworkObject, IOwner {
+    direction: EWallDirection;
+    wallPattern: EWallPattern;
+}
+
+/**
+ * Patterns for the floor.
+ */
+export enum EFloorPattern {
+    DIRT = 'DIRT',
+}
+
+/**
+ * A floor tile for a house.
+ */
+export interface IFloor extends INetworkObject, IOwner {
+    /**
+     * The pattern of the floor.
+     */
+    floorPattern: EFloorPattern;
+    /**
+     * The house id that the floor is related to.
+     */
+    houseId: string;
+}
+
+/**
  * The type of [[IDrawable object]].
  */
 export enum EDrawableType {
@@ -322,78 +394,6 @@ export enum EDrawableType {
      * A wall. Walls are hidden when below the current person and visible when above the current person.
      */
     WALL = 'WALL',
-}
-
-/**
- * The type of wall to be drawn.
- */
-export enum ERoomWallType {
-    WALL = 'WALL',
-    DOOR = 'DOOR',
-    OPEN = 'OPEN',
-    ENTRANCE = 'ENTRANCE',
-}
-
-/**
- * The state of the doors in a room.
- */
-export interface IRoomDoors {
-    /**
-     * There is a left door.
-     */
-    left: ERoomWallType;
-    /**
-     * There is a right door.
-     */
-    right: ERoomWallType;
-    /**
-     * There is a top door.
-     */
-    top: ERoomWallType;
-    /**
-     * There is a bottom door.
-     */
-    bottom: ERoomWallType;
-}
-
-/**
- * The different types of room.
- */
-export enum ERoomType {
-    /**
-     * A room that connects together to form a large open space.
-     */
-    HALLWAY = 'HALLWAY',
-    /**
-     * A room that is a dead end, useful for rooms that connect to hallways with a door.
-     */
-    OFFICE = 'OFFICE',
-    /**
-     * A room that connects hallways to the outside of the house. It contains the mailbox and sale sign of the house.
-     */
-    ENTRANCE = 'ENTRANCE',
-}
-
-/**
- * A room which contains doors and furniture.
- */
-export interface IRoom extends IObject {
-    /**
-     * Unique id of the room.
-     */
-    id: string;
-    /**
-     * The doors of the room.
-     */
-    doors: IRoomDoors;
-    /**
-     * The type of the room.
-     */
-    type: ERoomType;
-    /**
-     * The id of the lot that the room is for. Used by the mailbox to open a menu to edit the lot.
-     */
-    lotId: string;
 }
 
 /**
@@ -789,7 +789,9 @@ export interface IApiPersonsGetResponse {
     objects: INetworkObject[];
     resources: IResource[];
     lots: ILot[];
-    rooms: IRoom[];
+    houses: IHouse[];
+    walls: IWall[];
+    floors: IFloor[];
     roads: IRoad[];
     /**
      * A list of voice messages.

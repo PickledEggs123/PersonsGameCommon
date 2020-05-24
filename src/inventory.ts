@@ -1,9 +1,11 @@
 import {
+    ENetworkObjectType,
     getMaxStackSize,
     IApiPersonsObjectCraftPost,
     IApiPersonsObjectDropPost,
     IApiPersonsObjectPickUpPost,
     ICraftingRecipe,
+    ICraftingRecipeItem,
     INetworkObject,
     INpc,
     IPerson,
@@ -291,40 +293,97 @@ export class InventoryController {
     }
 
     /**
+     * Remove a recipe item from copy of slots.
+     * @param recipeItem The recipe containing item type and quantity.
+     * @param copyOfSlots The copy of the inventory slots to remove items from.
+     * @param modifiedSlots The list of modified slots.
+     */
+    private static internalRemoveCraftingRecipeItem(
+        recipeItem: ICraftingRecipeItem,
+        {
+            copyOfSlots,
+            modifiedSlots,
+        }: {
+            copyOfSlots: INetworkObject[];
+            modifiedSlots: INetworkObject[];
+        },
+    ) {
+        // get recipe amount needed
+        let recipeItemAmountLeft = recipeItem.quantity;
+        // for each slot in inventory
+        for (const slot of copyOfSlots) {
+            // found matching slot
+            if (slot.objectType === recipeItem.item) {
+                // determine amount to use, either full slot amount or full recipe amount left
+                const amountToUse = Math.min(slot.amount, recipeItemAmountLeft);
+
+                // subtract amount used from slot and recipe amount left
+                slot.amount -= amountToUse;
+                slot.lastUpdate = new Date().toISOString();
+                recipeItemAmountLeft -= amountToUse;
+
+                // add a modified slot if it is not in a list of already modified slots
+                if (!modifiedSlots.map((s) => s.id).includes(slot.id)) {
+                    modifiedSlots.push(slot);
+                }
+            }
+        }
+
+        // did not have all resources required by recipe, return false for failed crafting
+        if (recipeItemAmountLeft > 0) {
+            throw new Error('Not enough materials for crafting');
+        }
+
+        return {
+            copyOfSlots,
+            modifiedSlots,
+        };
+    }
+
+    /**
+     * Remove a crafting recipe item from the inventory.
+     * @param recipeItem Contains item type and quantity to remove from inventory.
+     */
+    removeCraftingRecipeItem(recipeItem: ICraftingRecipeItem) {
+        let copyOfSlots: INetworkObject[] = this.slots.map((slot) => ({ ...slot }));
+        let modifiedSlots: INetworkObject[] = [];
+
+        const result = InventoryController.internalRemoveCraftingRecipeItem(recipeItem, {
+            copyOfSlots,
+            modifiedSlots,
+        });
+        copyOfSlots = result.copyOfSlots;
+        modifiedSlots = result.modifiedSlots;
+
+        const newSlots = copyOfSlots.filter((slot) => slot.amount > 0);
+        this.slots = newSlots;
+        // remove empty slots
+        return {
+            // new slots are all slots which have more than 0 items
+            newSlots,
+            // deleted slots are slots which have 0 items
+            deletedSlots: copyOfSlots.filter((slot) => slot.amount === 0).map((slot) => slot.id),
+            // modified slots are slots which were modified and still have items
+            modifiedSlots: modifiedSlots.filter((slot) => slot.amount > 0),
+        };
+    }
+
+    /**
      * Subtract crafting materials from inventory slots.
      * @param recipe The recipe to process.
      */
     private getSlotsAfterCraftingMaterials(recipe: ICraftingRecipe): ICraftingTransaction {
-        const copyOfSlots = this.slots.map((slot) => ({ ...slot }));
-        const modifiedSlots: INetworkObject[] = [];
+        let copyOfSlots: INetworkObject[] = this.slots.map((slot) => ({ ...slot }));
+        let modifiedSlots: INetworkObject[] = [];
 
         // for each recipe item
         for (const recipeItem of recipe.items) {
-            // get recipe amount needed
-            let recipeItemAmountLeft = recipeItem.quantity;
-            // for each slot in inventory
-            for (const slot of copyOfSlots) {
-                // found matching slot
-                if (slot.objectType === recipeItem.item) {
-                    // determine amount to use, either full slot amount or full recipe amount left
-                    const amountToUse = Math.min(slot.amount, recipeItemAmountLeft);
-
-                    // subtract amount used from slot and recipe amount left
-                    slot.amount -= amountToUse;
-                    slot.lastUpdate = new Date().toISOString();
-                    recipeItemAmountLeft -= amountToUse;
-
-                    // add a modified slot if it is not in a list of already modified slots
-                    if (!modifiedSlots.map((s) => s.id).includes(slot.id)) {
-                        modifiedSlots.push(slot);
-                    }
-                }
-            }
-
-            // did not have all resources required by recipe, return false for failed crafting
-            if (recipeItemAmountLeft > 0) {
-                throw new Error('Not enough materials for crafting');
-            }
+            const result = InventoryController.internalRemoveCraftingRecipeItem(recipeItem, {
+                copyOfSlots,
+                modifiedSlots,
+            });
+            copyOfSlots = result.copyOfSlots;
+            modifiedSlots = result.modifiedSlots;
         }
 
         // remove empty slots
@@ -339,19 +398,36 @@ export class InventoryController {
     }
 
     /**
-     * Convert items in the inventory into another item.
+     * Create the basic id string for all inventory items. Use the RNG to create predictable yet random id strings.
      */
-    craftItem(recipe: ICraftingRecipe): IInventoryTransaction {
-        const { newSlots: slotsAfterCrafting, deletedSlots, modifiedSlots } = this.getSlotsAfterCraftingMaterials(
-            recipe,
-        );
-        // there was enough materials to craft the recipe
+    private newItemId(): string {
+        return `${this.inventoryHolder.id}-${this.rng.int32()}`;
+    }
 
-        const recipeItem: INetworkObject = {
-            id: `crafted-item-${this.inventoryHolder.id}-${this.rng.int32()}`,
+    /**
+     * The id string of all crafted items.
+     */
+    private newCraftingItemId(): string {
+        return `crafted-item-${this.newItemId()}`;
+    }
+
+    /**
+     * The id string of a new houses.
+     */
+    getHouseId(): string {
+        return `house-${this.newItemId()}`;
+    }
+
+    /**
+     * Create a new item of a given object type.
+     * @param objectType The type of item to create.
+     */
+    createItemType(objectType: ENetworkObjectType): INetworkObject {
+        return {
+            id: this.newCraftingItemId(),
             x: this.inventoryHolder.x,
             y: this.inventoryHolder.y,
-            objectType: recipe.product,
+            objectType,
             amount: 1,
             isInInventory: true,
             grabbedByNpcId: this.isNpc ? this.inventoryHolder.id : null,
@@ -363,11 +439,32 @@ export class InventoryController {
                 value: 1,
             },
         };
+    }
+
+    /**
+     * Convert items in the inventory into another item.
+     */
+    craftItem(recipe: ICraftingRecipe): IInventoryTransaction {
+        const { newSlots: slotsAfterCrafting, deletedSlots, modifiedSlots } = this.getSlotsAfterCraftingMaterials(
+            recipe,
+        );
+        // there was enough materials to craft the recipe
+
+        // create item and pick it up
+        const recipeItem: INetworkObject = this.createItemType(recipe.product);
         return {
             ...this.pickUpItemInternal(recipeItem, slotsAfterCrafting),
             deletedSlots,
             modifiedSlots,
         };
+    }
+
+    /**
+     * Add an item to the inventory.
+     * @param item The item to add.
+     */
+    addItem(item: INetworkObject): IInventoryTransaction {
+        return this.pickUpItemInternal(item);
     }
 
     /**
