@@ -4,6 +4,7 @@ import {
     EOwnerType,
     EWallDirection,
     EWallPattern,
+    IApiPersonsConstructionPost,
     ICraftingRecipeItem,
     IFloor,
     IHouse,
