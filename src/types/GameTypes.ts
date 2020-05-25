@@ -887,6 +887,14 @@ export interface IApiPersonsObjectCraftPost {
 }
 
 /**
+ * The HTTP /persons/construction post request.
+ */
+export interface IApiPersonsConstructionPost {
+    personId: string;
+    location: IObject;
+}
+
+/**
  * Base voice message format.
  */
 export interface IApiVoiceMessage {

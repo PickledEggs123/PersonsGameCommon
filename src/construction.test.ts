@@ -42,6 +42,22 @@ describe('Construction Controller', () => {
         });
         expect(controller).toBeTruthy();
     });
+    it('should create construction request', () => {
+        const controller = new ConstructionController({
+            inventoryHolder: person,
+            houses: [],
+            floors: [],
+            walls: [],
+        });
+        const location: IObject = {
+            x: 0,
+            y: 0,
+        };
+        expect(controller.getConstructionRequest(location)).toEqual({
+            personId: person.id,
+            location,
+        });
+    });
     it('should fail to construct 1x1 building (no materials)', () => {
         const controller = new ConstructionController({
             inventoryHolder: person,

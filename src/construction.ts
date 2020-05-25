@@ -507,27 +507,15 @@ export class ConstructionController {
         // perform inventory update
         for (const craftingRecipeItem of itemsToRemove) {
             const result = this.inventoryController.removeCraftingRecipeItem(craftingRecipeItem);
-            deletedSlots = [
-                ...deletedSlots,
-                ...result.deletedSlots
-            ];
-            modifiedSlots = [
-                ...modifiedSlots,
-                ...result.modifiedSlots
-            ];
+            deletedSlots = [...deletedSlots, ...result.deletedSlots];
+            modifiedSlots = [...modifiedSlots, ...result.modifiedSlots];
         }
         for (const item of itemsToAdd) {
             const result = this.inventoryController.addItem(item);
             if (result.updatedItem) {
-                updatedItems = [
-                    ...updatedItems,
-                    result.updatedItem
-                ];
+                updatedItems = [...updatedItems, result.updatedItem];
             }
-            stackableSlots = [
-                ...stackableSlots,
-                ...result.stackableSlots
-            ];
+            stackableSlots = [...stackableSlots, ...result.stackableSlots];
         }
 
         // update construction
@@ -551,7 +539,7 @@ export class ConstructionController {
             deletedSlots,
             modifiedSlots,
             updatedItems,
-            stackableSlots
+            stackableSlots,
         };
     }
 
@@ -564,6 +552,13 @@ export class ConstructionController {
             houses: this.houses,
             floors: this.floors,
             walls: this.walls,
+        };
+    }
+
+    public getConstructionRequest(location: IObject): IApiPersonsConstructionPost {
+        return {
+            personId: this.inventoryHolder.id,
+            location,
         };
     }
 }
