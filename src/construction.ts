@@ -36,6 +36,22 @@ export interface IConstructionControllerState {
 }
 
 /**
+ * Get a list of building and item changes.
+ */
+export interface IConstructBuildingTransaction {
+    housesToAdd: IHouse[];
+    housesToRemove: IHouse[];
+    floorsToAdd: IFloor[];
+    floorsToRemove: IFloor[];
+    wallsToAdd: IWall[];
+    wallsToRemove: IWall[];
+    deletedSlots: string[];
+    modifiedSlots: INetworkObject[];
+    updatedItems: INetworkObject[];
+    stackableSlots: INetworkObject[];
+}
+
+/**
  * A class which handles all logic behind constructing or destroying a building.
  */
 export class ConstructionController {
@@ -459,7 +475,7 @@ export class ConstructionController {
         };
     }
 
-    public constructBuilding({ location }: { location: IObject }) {
+    public constructBuilding({ location }: { location: IObject }): IConstructBuildingTransaction {
         // determine the structure changes required to perform the construction action at the location
         const {
             housesToRemove,
@@ -483,12 +499,35 @@ export class ConstructionController {
             floorsToRemove,
         });
 
+        let deletedSlots: string[] = [];
+        let modifiedSlots: INetworkObject[] = [];
+        let updatedItems: INetworkObject[] = [];
+        let stackableSlots: INetworkObject[] = [];
+
         // perform inventory update
         for (const craftingRecipeItem of itemsToRemove) {
-            this.inventoryController.removeCraftingRecipeItem(craftingRecipeItem);
+            const result = this.inventoryController.removeCraftingRecipeItem(craftingRecipeItem);
+            deletedSlots = [
+                ...deletedSlots,
+                ...result.deletedSlots
+            ];
+            modifiedSlots = [
+                ...modifiedSlots,
+                ...result.modifiedSlots
+            ];
         }
         for (const item of itemsToAdd) {
-            this.inventoryController.addItem(item);
+            const result = this.inventoryController.addItem(item);
+            if (result.updatedItem) {
+                updatedItems = [
+                    ...updatedItems,
+                    result.updatedItem
+                ];
+            }
+            stackableSlots = [
+                ...stackableSlots,
+                ...result.stackableSlots
+            ];
         }
 
         // update construction
@@ -501,6 +540,19 @@ export class ConstructionController {
             ...floorsToAdd,
         ];
         this.walls = [...this.walls.filter((wall) => !wallsToRemove.some((w) => w.id === wall.id)), ...wallsToAdd];
+
+        return {
+            housesToAdd,
+            housesToRemove,
+            floorsToAdd,
+            floorsToRemove,
+            wallsToAdd,
+            wallsToRemove,
+            deletedSlots,
+            modifiedSlots,
+            updatedItems,
+            stackableSlots
+        };
     }
 
     public getState(): IConstructionControllerState {
