@@ -1,33 +1,9 @@
 import 'jest';
-import { ENetworkObjectType, getCurrentTDayNightTime, getMaxStackSize } from './GameTypes';
+import { ENetworkObjectType } from './GameTypes';
+import { getMaxStackSize } from '../inventory';
+import { getCurrentTDayNightTime } from './time';
 
-describe('GameTypes Functions', () => {
-    describe('getMaxStackSize', () => {
-        const cases: Array<{
-            objectType: ENetworkObjectType;
-            stackSize: number;
-        }> = [
-            {
-                objectType: ENetworkObjectType.STICK,
-                stackSize: 10,
-            },
-            {
-                objectType: ENetworkObjectType.WATTLE_WALL,
-                stackSize: 4,
-            },
-            {
-                objectType: ENetworkObjectType.WOOD,
-                stackSize: 1,
-            },
-        ];
-
-        for (const c of cases) {
-            const { objectType, stackSize } = c;
-            it(`should get ${objectType}`, () => {
-                expect(getMaxStackSize(objectType)).toBe(stackSize);
-            });
-        }
-    });
+describe('Time Functions', () => {
     describe('getTimeOfDay', () => {
         it('should get 12:00 am', () => {
             expect(getCurrentTDayNightTime(new Date(Date.UTC(2020, 0, 1, 0, 0)))).toBe(0);

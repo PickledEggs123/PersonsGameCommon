@@ -1,4 +1,5 @@
 import * as seedrandom from 'seedrandom';
+import { TDayNightTime } from './time';
 
 /**
  * The base interface for all game objects.
@@ -77,25 +78,6 @@ export enum ENetworkObjectType {
 }
 
 /**
- * A mapping of object type to stack size.
- */
-const stackSizes: { [key: string]: number } = {
-    [ENetworkObjectType.STICK]: 10,
-    [ENetworkObjectType.WATTLE_WALL]: 4,
-};
-/**
- * The max number of items that can be stored in an object stack.
- * @param objectType
- */
-export const getMaxStackSize = (objectType: ENetworkObjectType): number => {
-    if (typeof stackSizes[objectType] === 'number') {
-        return stackSizes[objectType];
-    } else {
-        return 1;
-    }
-};
-
-/**
  * Contains all health related information for an object.
  */
 export interface IObjectHealth {
@@ -111,6 +93,14 @@ export interface IObjectHealth {
      * The rate of healing per server tick.
      */
     rate: number;
+}
+
+/**
+ * Contain state changes of the object throughout it's lifetime.
+ */
+export interface INetworkObjectState<T extends INetworkObject> {
+    time: string;
+    state: Partial<T>;
 }
 
 export interface INetworkObject extends IObject {
@@ -151,6 +141,14 @@ export interface INetworkObject extends IObject {
      * How many copies of an item is in this stack of items.
      */
     amount: number;
+    /**
+     * If the object exists.
+     */
+    exist: boolean;
+    /**
+     * A list of state changes on the object through time.
+     */
+    state: INetworkObjectState<INetworkObject>[];
 }
 
 /**
@@ -247,6 +245,10 @@ export interface IResource extends INetworkObject {
      * The time of the resource being ready.
      */
     readyTime: string;
+    /**
+     * A list of state changes on the object through time.
+     */
+    state: INetworkObjectState<IResource>[];
 }
 
 /**
@@ -573,19 +575,6 @@ export interface ICraftingRecipe {
      */
     byHand: boolean;
 }
-
-export const listOfRecipes: ICraftingRecipe[] = [
-    {
-        product: ENetworkObjectType.WATTLE_WALL,
-        items: [
-            {
-                item: ENetworkObjectType.STICK,
-                quantity: 10,
-            },
-        ],
-        byHand: true,
-    },
-];
 
 /**
  * An industrial lot that specializes in producing complex objects.
@@ -1043,28 +1032,6 @@ export interface INpcPathPoint {
 }
 
 /**
- * The game operates on a 4 hour, 240 minutes, 10 minute per hour basis. It is represented by a number that loops back
- * to repeat the entire start of the schedule. It is the number of miliseconds since midnight 12:00 am. Examples:
- *      0 -  60000 12 am to 1 am
- *  60000 - 120000  1 am to 2 am
- * 120000 - 180000  2 am to 3 am
- */
-export type TDayNightTime = number;
-
-/**
- * The length of one hour in day night time.
- */
-export const TDayNightTimeHour: TDayNightTime = 60 * 10 * 1000;
-
-/**
- * Get the current number of milliseconds from midnight in game time.
- */
-export const getCurrentTDayNightTime = (time: Date = new Date()) => {
-    const day = TDayNightTimeHour * 24;
-    return +time % day;
-};
-
-/**
  * A time slot in a NPC schedule to do a specific action between two points of time.
  */
 export interface INpcSchedule {
@@ -1098,4 +1065,8 @@ export interface INpc extends IPerson {
      * A list of actions to perform every 4 hours.
      */
     schedule: INpcSchedule[];
+    /**
+     * An ISO Date string of when the NPC is ready for the next task.
+     */
+    readyTime: string;
 }

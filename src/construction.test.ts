@@ -31,6 +31,8 @@ describe('Construction Controller', () => {
         },
         craftingSeed: 'craftingSeed',
         craftingState: true,
+        exist: true,
+        state: [],
     };
 
     it('should create construction controller', () => {

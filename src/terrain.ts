@@ -86,6 +86,8 @@ export const createResource = (point: IObject, objectType: ENetworkObjectType): 
         readyTime: new Date().toISOString(),
         spawnState: true,
         amount: 1,
+        exist: true,
+        state: [],
     };
     if (objectType === ENetworkObjectType.TREE) {
         const tree: ITree = {

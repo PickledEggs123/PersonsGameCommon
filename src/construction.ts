@@ -108,6 +108,8 @@ export class ConstructionController {
             lastUpdate: new Date().toISOString(),
             amount: 1,
             npcId: this.inventoryController.getHouseId(),
+            exist: true,
+            state: [],
         };
     }
 
@@ -136,6 +138,8 @@ export class ConstructionController {
                 value: 1,
             },
             amount: 1,
+            exist: true,
+            state: [],
         };
     }
 
@@ -164,6 +168,8 @@ export class ConstructionController {
                 value: 1,
             },
             amount: 1,
+            exist: true,
+            state: [],
         };
     }
 

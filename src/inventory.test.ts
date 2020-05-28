@@ -1,13 +1,6 @@
 import 'jest';
-import { InventoryController } from './inventory';
-import {
-    ENetworkObjectType,
-    getMaxStackSize,
-    ICraftingRecipe,
-    INetworkObject,
-    IPerson,
-    listOfRecipes,
-} from './types/GameTypes';
+import { getMaxStackSize, InventoryController, listOfRecipes } from './inventory';
+import { ENetworkObjectType, ICraftingRecipe, INetworkObject, IPerson } from './types/GameTypes';
 
 describe('InventoryController', () => {
     const person: IPerson = {
@@ -37,6 +30,8 @@ describe('InventoryController', () => {
         },
         craftingSeed: 'craftingSeed',
         craftingState: true,
+        exist: true,
+        state: [],
     };
 
     it('should create inventory controller', () => {
@@ -64,6 +59,8 @@ describe('InventoryController', () => {
                 value: 1,
             },
             amount: 1,
+            exist: true,
+            state: [],
         };
     };
     /**
@@ -299,6 +296,32 @@ describe('InventoryController', () => {
                     ],
                 }),
             );
+        }
+    });
+    describe('getMaxStackSize', () => {
+        const cases: Array<{
+            objectType: ENetworkObjectType;
+            stackSize: number;
+        }> = [
+            {
+                objectType: ENetworkObjectType.STICK,
+                stackSize: 10,
+            },
+            {
+                objectType: ENetworkObjectType.WATTLE_WALL,
+                stackSize: 4,
+            },
+            {
+                objectType: ENetworkObjectType.WOOD,
+                stackSize: 1,
+            },
+        ];
+
+        for (const c of cases) {
+            const { objectType, stackSize } = c;
+            it(`should get ${objectType}`, () => {
+                expect(getMaxStackSize(objectType)).toBe(stackSize);
+            });
         }
     });
 });

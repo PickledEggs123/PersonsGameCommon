@@ -1,6 +1,5 @@
 import {
     ENetworkObjectType,
-    getMaxStackSize,
     IApiPersonsObjectCraftPost,
     IApiPersonsObjectDropPost,
     IApiPersonsObjectPickUpPost,
@@ -54,6 +53,41 @@ export interface ICraftingTransaction {
      */
     modifiedSlots: INetworkObject[];
 }
+
+/**
+ * A mapping of object type to stack size.
+ */
+const stackSizes: { [key: string]: number } = {
+    [ENetworkObjectType.STICK]: 10,
+    [ENetworkObjectType.WATTLE_WALL]: 4,
+};
+/**
+ * The max number of items that can be stored in an object stack.
+ * @param objectType
+ */
+export const getMaxStackSize = (objectType: ENetworkObjectType): number => {
+    if (typeof stackSizes[objectType] === 'number') {
+        return stackSizes[objectType];
+    } else {
+        return 1;
+    }
+};
+
+/**
+ * A list of crafting recipes.
+ */
+export const listOfRecipes: ICraftingRecipe[] = [
+    {
+        product: ENetworkObjectType.WATTLE_WALL,
+        items: [
+            {
+                item: ENetworkObjectType.STICK,
+                quantity: 10,
+            },
+        ],
+        byHand: true,
+    },
+];
 
 /**
  * A class which can handle inventory operations like picking up an item or dropping an item or crafting an item.
@@ -438,6 +472,8 @@ export class InventoryController {
                 max: 1,
                 value: 1,
             },
+            exist: true,
+            state: [],
         };
     }
 

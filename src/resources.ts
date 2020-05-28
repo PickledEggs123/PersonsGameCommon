@@ -109,6 +109,8 @@ export class HarvestResourceController {
             grabbedByNpcId: null,
             isInInventory: false,
             amount: 1,
+            exist: true,
+            state: [],
         };
         const respawnTime = Math.ceil(this.rng.quick() * spawn.spawnTime);
 
