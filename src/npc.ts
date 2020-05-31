@@ -107,6 +107,92 @@ export interface ICellFinalState {
     objects: INetworkObject[];
 }
 
+/**
+ * Interpolate path data onto the npc position.
+ * @param npc The npc with path data.
+ */
+export const applyPathToNpc = (npc: INpc): INpc => {
+    // get the current time, used to interpolate the npc
+    const now = new Date();
+
+    // determine if there is path data
+    const firstPoint = npc.path[0];
+    if (firstPoint && +now > Date.parse(firstPoint.time)) {
+        // there is path information and the path started
+
+        // a path is made of an array of points. We want to interpolate two points forming a line segment.
+        // find point b in array of points, it's the second point
+        const indexOfPointB = npc.path.findIndex((p) => Date.parse(p.time) > +now);
+        if (indexOfPointB >= 0) {
+            // not past last path yet, interpolate point a to point b
+            const a = npc.path[indexOfPointB - 1];
+            const b = npc.path[indexOfPointB];
+            if (a && b) {
+                const pointA = a.location;
+                const pointB = b.location;
+                const timeA = Date.parse(a.time);
+                const timeB = Date.parse(b.time);
+
+                const dx = pointB.x - pointA.x;
+                const dy = pointB.y - pointA.y;
+                const dt = timeB - timeA;
+                const t = (+now - timeA) / dt;
+                const x = pointA.x + dx * t;
+                const y = pointA.y + dy * t;
+
+                return {
+                    ...npc,
+                    x,
+                    y,
+                };
+            } else {
+                // missing points a and b
+                return npc;
+            }
+        } else {
+            // past last point, path data is over
+            const lastPoint = npc.path[npc.path.length - 1];
+            if (lastPoint) {
+                // draw npc at last location
+                const { x, y } = lastPoint.location;
+                return {
+                    ...npc,
+                    x,
+                    y,
+                };
+            } else {
+                // cannot find last location, return original npc
+                return npc;
+            }
+        }
+    } else {
+        // no path information, return original npc
+        return npc;
+    }
+};
+
+/**
+ * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
+ * over time. The UI can update the object using the object information without having to receive network updates.
+ * @param networkObject The object containing state updates.
+ */
+export const applyStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
+    const now = +new Date();
+    return networkObject.state.reduce(
+        (acc: INetworkObject, state: INetworkObjectState<INetworkObject>): INetworkObject => {
+            if (now >= Date.parse(state.time)) {
+                return {
+                    ...acc,
+                    ...state.state,
+                };
+            } else {
+                return acc;
+            }
+        },
+        networkObject,
+    );
+};
+
 export class CellController {
     /**
      * The initial list of npcs.
@@ -145,10 +231,10 @@ export class CellController {
     private currentMilliseconds: number;
 
     constructor({ npcs, resources, houses, objects }: ICellControllerParams) {
-        this.npcs = npcs;
-        this.resources = resources;
+        this.npcs = npcs.map((npc) => applyPathToNpc(npc));
+        this.resources = resources.map((resource) => applyStateToNetworkObject(resource) as IResource);
         this.houses = houses;
-        this.objects = objects;
+        this.objects = objects.map((obj) => applyStateToNetworkObject(obj));
 
         this.startTime = new Date();
         this.currentMilliseconds = 0;
@@ -401,10 +487,15 @@ export class CellController {
                         },
                     ),
             ];
-            return {
-                ...resource,
-                state,
-            };
+            const initialResourceCopy = this.resources.find((r) => r.id === resource.id);
+            if (initialResourceCopy) {
+                return {
+                    ...initialResourceCopy,
+                    state,
+                };
+            } else {
+                throw new Error('Could not find initial resource');
+            }
         });
 
         const objects: INetworkObject[] = this.state.spawns.map(
@@ -429,89 +520,3 @@ export class CellController {
         };
     }
 }
-
-/**
- * Interpolate path data onto the npc position.
- * @param npc The npc with path data.
- */
-export const applyPathToNpc = (npc: INpc): INpc => {
-    // get the current time, used to interpolate the npc
-    const now = new Date();
-
-    // determine if there is path data
-    const firstPoint = npc.path[0];
-    if (firstPoint && +now > Date.parse(firstPoint.time)) {
-        // there is path information and the path started
-
-        // a path is made of an array of points. We want to interpolate two points forming a line segment.
-        // find point b in array of points, it's the second point
-        const indexOfPointB = npc.path.findIndex((p) => Date.parse(p.time) > +now);
-        if (indexOfPointB >= 0) {
-            // not past last path yet, interpolate point a to point b
-            const a = npc.path[indexOfPointB - 1];
-            const b = npc.path[indexOfPointB];
-            if (a && b) {
-                const pointA = a.location;
-                const pointB = b.location;
-                const timeA = Date.parse(a.time);
-                const timeB = Date.parse(b.time);
-
-                const dx = pointB.x - pointA.x;
-                const dy = pointB.y - pointA.y;
-                const dt = timeB - timeA;
-                const t = (+now - timeA) / dt;
-                const x = pointA.x + dx * t;
-                const y = pointA.y + dy * t;
-
-                return {
-                    ...npc,
-                    x,
-                    y,
-                };
-            } else {
-                // missing points a and b
-                return npc;
-            }
-        } else {
-            // past last point, path data is over
-            const lastPoint = npc.path[npc.path.length - 1];
-            if (lastPoint) {
-                // draw npc at last location
-                const { x, y } = lastPoint.location;
-                return {
-                    ...npc,
-                    x,
-                    y,
-                };
-            } else {
-                // cannot find last location, return original npc
-                return npc;
-            }
-        }
-    } else {
-        // no path information, return original npc
-        return npc;
-    }
-};
-
-/**
- * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
- * over time. The UI can update the object using the object information without having to receive network updates.
- * @param networkObject The object containing state updates.
- */
-export const applyStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
-    const now = +new Date();
-    return networkObject.state.reduce(
-        (acc: INetworkObject, state: INetworkObjectState<INetworkObject>): INetworkObject => {
-            if (now >= Date.parse(state.time)) {
-                return {
-                    ...acc,
-                    ...state.state,
-                };
-            } else {
-                return acc;
-            }
-        },
-        networkObject,
-    );
-};
