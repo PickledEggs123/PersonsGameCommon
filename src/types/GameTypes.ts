@@ -1050,6 +1050,15 @@ export interface INpcSchedule {
 }
 
 /**
+ * Represent a change in inventory over time. NPCs will have multiple inventory state changes as they pick up items
+ * in between 1 minute npc ticks.
+ */
+export interface IInventoryState {
+    time: string;
+    state: IPersonsInventory;
+}
+
+/**
  * A non playable character that moves along preplanned routes.
  */
 export interface INpc extends IPerson {
@@ -1058,10 +1067,6 @@ export interface INpc extends IPerson {
      */
     path: INpcPathPoint[];
     /**
-     * A map of the pathfinding map used by the NPC.
-     */
-    directionMap: string;
-    /**
      * A list of actions to perform every 4 hours.
      */
     schedule: INpcSchedule[];
@@ -1069,4 +1074,8 @@ export interface INpc extends IPerson {
      * An ISO Date string of when the NPC is ready for the next task.
      */
     readyTime: string;
+    /**
+     * Represent the change to npc inventory over time.
+     */
+    inventoryState: IInventoryState[];
 }

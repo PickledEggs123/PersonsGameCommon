@@ -1,4 +1,12 @@
-import { IHouse, INetworkObject, INetworkObjectState, INpc, INpcPathPoint, IResource } from './types/GameTypes';
+import {
+    IHouse,
+    IInventoryState,
+    INetworkObject,
+    INetworkObjectState,
+    INpc,
+    INpcPathPoint,
+    IResource,
+} from './types/GameTypes';
 import { HarvestResourceController } from './resources';
 import { InventoryController } from './inventory';
 
@@ -59,12 +67,14 @@ interface ICellSimulationState {
     resources: IResource[];
     spawns: ISpawnEvent[];
     resourceEvents: IResourceEvent[];
+    networkObjectEvents: INetworkObjectEvent[];
+    npcInventoryEvents: INpcInventoryEvent[];
 }
 
 /**
- * An npc action result.
+ * The result of an NPC walking.
  */
-interface INpcActionResult {
+interface INpcWalkResult {
     /**
      * The number of milliseconds the action will occur for.
      */
@@ -73,6 +83,24 @@ interface INpcActionResult {
      * The path of the npc during the action.
      */
     path: INpcPathPoint[];
+}
+
+/**
+ * An event where an NPC picked up an item and the NPC inventory must be updated.
+ */
+interface INpcInventoryEvent {
+    /**
+     * The id of the NPC which picked up an item and the inventory must be updated.
+     */
+    npcId: string;
+    /**
+     * The time of the item being picked up.
+     */
+    time: Date;
+    /**
+     * The new content of the NPC inventory.
+     */
+    state: IInventoryState;
 }
 
 /**
@@ -87,6 +115,21 @@ interface ISpawnEvent {
      * The item that was spawned.
      */
     spawn: INetworkObject;
+}
+
+interface INetworkObjectEvent {
+    /**
+     * The id of the affected object.
+     */
+    objectId: string;
+    /**
+     * The time of the network object being modified.
+     */
+    time: Date;
+    /**
+     * The modification to the network object.
+     */
+    state: INetworkObjectState<INetworkObject>;
 }
 
 /**
@@ -111,7 +154,7 @@ export interface ICellFinalState {
  * Interpolate path data onto the npc position.
  * @param npc The npc with path data.
  */
-export const applyPathToNpc = (npc: INpc): INpc => {
+const internalApplyPathToNpc = (npc: INpc): INpc => {
     // get the current time, used to interpolate the npc
     const now = new Date();
 
@@ -172,6 +215,38 @@ export const applyPathToNpc = (npc: INpc): INpc => {
 };
 
 /**
+ * Apply inventory state updates over time. The npc will store a list of inventory changes as it will pick
+ * items up over time. Each NPC tick (npc logic) is 1 minute long. Each web page refresh is 2 seconds long. A
+ * list of inventory states is required to smoothly interpolate npc data in between the large npc logic tick
+ * and page refresh.
+ * @param npc The npc with inventory state to interpolate.
+ */
+const internalApplyInventoryStateToNpc = (npc: INpc): INpc => {
+    const now = new Date();
+    return npc.inventoryState.reduce((acc: INpc, inventoryState: IInventoryState): INpc => {
+        if (+now >= Date.parse(inventoryState.time)) {
+            return {
+                ...acc,
+                inventory: {
+                    ...acc.inventory,
+                    ...inventoryState.state,
+                },
+            };
+        } else {
+            return acc;
+        }
+    }, npc);
+};
+
+/**
+ * Interpolate npc data.
+ * @param npc The npc to interpolate to current time, now.
+ */
+export const applyPathToNpc = (npc: INpc): INpc => {
+    return internalApplyPathToNpc(internalApplyInventoryStateToNpc(npc));
+};
+
+/**
  * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
  * over time. The UI can update the object using the object information without having to receive network updates.
  * @param networkObject The object containing state updates.
@@ -219,6 +294,8 @@ export class CellController {
         resources: [],
         spawns: [],
         resourceEvents: [],
+        networkObjectEvents: [],
+        npcInventoryEvents: [],
     };
 
     /**
@@ -254,6 +331,8 @@ export class CellController {
             resources: this.resources.map((o) => ({ ...o })),
             spawns: [],
             resourceEvents: [],
+            networkObjectEvents: [],
+            npcInventoryEvents: [],
         };
         this.startTime = new Date();
         this.currentMilliseconds = 0;
@@ -267,8 +346,14 @@ export class CellController {
         this.state.npcs = this.state.npcs.sort(CellController.newestSimulationEvent);
     }
 
+    private static npcHasInventorySpace(npc: INpc) {
+        const maxSlots: number = npc.inventory.rows * npc.inventory.columns;
+        return npc.inventory.slots.length < maxSlots;
+    }
+
     private isNpcReady(npc: INpc) {
-        return +this.startTime + this.currentMilliseconds >= Date.parse(npc.readyTime);
+        const isReady: boolean = +this.startTime + this.currentMilliseconds >= Date.parse(npc.readyTime);
+        return isReady && CellController.npcHasInventorySpace(npc);
     }
 
     private isResourceReady(resource: IResource) {
@@ -303,7 +388,7 @@ export class CellController {
      * @param npc
      * @param resource
      */
-    generatePathToResource(npc: INpc, resource: IResource): INpcActionResult {
+    private generatePathToResource(npc: INpc, resource: IResource): INpcWalkResult {
         const path: INpcPathPoint[] = [];
         let timeSinceTraveling: number = 0;
 
@@ -354,6 +439,15 @@ export class CellController {
     }
 
     /**
+     * The amount of time the NPC should pause after reaching destination.
+     */
+    public static WAIT_TIME_AFTER_WALKING: number = 2000;
+    /**
+     * The amount of time the NPC should pause after picking up an item.
+     */
+    public static WAIT_TIME_AFTER_PICK_UP: number = 2000;
+
+    /**
      * Run all npcs and objects within the cell for a specified amount of milliseconds.
      * @param maxMilliseconds The amount of time to run the cell for.
      */
@@ -371,7 +465,7 @@ export class CellController {
                 this.currentMilliseconds += 1000;
                 continue;
             }
-            const npcEvent: ISimulationEvent<INpc> = this.state.npcs[firstEventIndex];
+            let npcEvent: ISimulationEvent<INpc> = this.state.npcs[firstEventIndex];
 
             // find ready resources
             const nextResourceIndex = this.getNextResourceIndex(npcEvent.data);
@@ -384,17 +478,25 @@ export class CellController {
 
             // update npc to walk towards resource point
             const { path, duration } = this.generatePathToResource(npcEvent.data, nextResource);
-            this.state.npcs[firstEventIndex] = {
+            const npcReadyTime: Date = new Date(
+                +this.startTime +
+                    this.currentMilliseconds +
+                    duration +
+                    CellController.WAIT_TIME_AFTER_WALKING +
+                    CellController.WAIT_TIME_AFTER_PICK_UP,
+            );
+            npcEvent = {
                 ...npcEvent,
                 data: {
                     ...npcEvent.data,
                     path: [...npcEvent.data.path, ...path],
                     x: path[path.length - 1].location.x,
                     y: path[path.length - 1].location.y,
-                    readyTime: new Date(+this.startTime + this.currentMilliseconds + duration).toISOString(),
+                    readyTime: npcReadyTime.toISOString(),
                 },
-                readyTime: new Date(+this.startTime + this.currentMilliseconds + duration),
+                readyTime: npcReadyTime,
             };
+            this.state.npcs[firstEventIndex] = npcEvent;
 
             // harvest resource point
             {
@@ -402,11 +504,12 @@ export class CellController {
                 const controller = new HarvestResourceController(nextResource);
                 const { spawn, respawnTime } = controller.spawn();
 
-                // the times of the resource node being harvested and respawning
-                const harvestedTime: Date = new Date(+this.startTime + this.currentMilliseconds + duration);
-                const respawnedTime: Date = new Date(
-                    +this.startTime + this.currentMilliseconds + duration + respawnTime,
+                // the times of the resource node being harvested and respawning and picking up resource
+                const harvestedTime: Date = new Date(
+                    +this.startTime + this.currentMilliseconds + duration + CellController.WAIT_TIME_AFTER_WALKING,
                 );
+                const respawnedTime: Date = new Date(+harvestedTime + respawnTime);
+                const pickUpTime: Date = new Date(+harvestedTime + CellController.WAIT_TIME_AFTER_PICK_UP);
 
                 // the harvested state of the resource node
                 const harvestedState: Partial<IResource> = {
@@ -426,11 +529,18 @@ export class CellController {
                 };
 
                 // drop item
+                const spawnState: INetworkObjectState<INetworkObject> = {
+                    time: harvestedTime.toISOString(),
+                    state: {
+                        exist: true,
+                    },
+                };
                 const spawnEvent: ISpawnEvent = {
                     time: harvestedTime,
                     spawn: {
                         ...spawn,
                         exist: false,
+                        state: [spawnState],
                     },
                 };
                 this.state.spawns.push(spawnEvent);
@@ -448,6 +558,61 @@ export class CellController {
                     time: respawnedTime,
                 };
                 this.state.resourceEvents.push(harvestedEvent, respawnEvent);
+
+                const inventoryController = new InventoryController(npcEvent.data);
+                const { updatedItem, stackableSlots } = inventoryController.pickUpItem(spawnEvent.spawn);
+                if (updatedItem) {
+                    // inventory picked up item
+                    const pickUpState: INetworkObjectState<INetworkObject> = {
+                        time: pickUpTime.toISOString(),
+                        state: {
+                            isInInventory: true,
+                            grabbedByNpcId: npcEvent.data.id,
+                        },
+                    };
+                    spawnEvent.spawn.state.push(pickUpState);
+                } else {
+                    // inventory merged item with existing object stack
+                    for (const stackableSlot of stackableSlots) {
+                        const mergeItemEvent: INetworkObjectEvent = {
+                            objectId: stackableSlot.id,
+                            time: pickUpTime,
+                            state: {
+                                time: pickUpTime.toISOString(),
+                                state: {
+                                    ...stackableSlot,
+                                },
+                            },
+                        };
+                        this.state.networkObjectEvents.push(mergeItemEvent);
+                    }
+                }
+
+                // update the npc inventory of the object that was just picked up.
+                const npcInventoryEvent: INpcInventoryEvent = {
+                    npcId: npcEvent.data.id,
+                    time: pickUpTime,
+                    state: {
+                        time: pickUpTime.toISOString(),
+                        state: inventoryController.getInventory(),
+                    },
+                };
+                this.state.npcInventoryEvents.push(npcInventoryEvent);
+
+                // update npc to pick up item
+                npcEvent = {
+                    ...npcEvent,
+                    data: {
+                        ...npcEvent.data,
+                        inventory: {
+                            ...npcEvent.data.inventory,
+                            ...npcInventoryEvent.state.state,
+                        },
+                        inventoryState: [...npcEvent.data.inventoryState, npcInventoryEvent.state],
+                    },
+                    readyTime: npcReadyTime,
+                };
+                this.state.npcs[firstEventIndex] = npcEvent;
             }
         }
     }
@@ -456,6 +621,8 @@ export class CellController {
         const npcs: INpc[] = this.state.npcs.map(
             (npcEvent): INpc => {
                 const npc = npcEvent.data;
+
+                // slice old npc paths to avoid it from growing to large
                 const firstRelevantPathPoint = npc.path.findIndex((p) => Date.parse(p.time) >= +this.startTime);
                 let path: INpcPathPoint[];
                 if (firstRelevantPathPoint < 0) {
@@ -465,9 +632,16 @@ export class CellController {
                 } else {
                     path = npc.path.slice(firstRelevantPathPoint - 1);
                 }
+
+                // get npc inventory events
+                const relevantNpcInventoryEvents = this.state.npcInventoryEvents.filter(
+                    (event) => event.npcId === npc.id,
+                );
+                const inventoryState: IInventoryState[] = relevantNpcInventoryEvents.map((event) => event.state);
                 return {
                     ...npc,
                     path,
+                    inventoryState,
                 };
             },
         );
@@ -498,20 +672,30 @@ export class CellController {
             }
         });
 
-        const objects: INetworkObject[] = this.state.spawns.map(
-            (spawnEvent): INetworkObject => {
-                const spawnState: INetworkObjectState<INetworkObject> = {
-                    time: spawnEvent.time.toISOString(),
-                    state: {
-                        exist: true,
-                    },
-                };
+        const objects: INetworkObject[] = [
+            // add newly spawned items
+            ...this.state.spawns.map(
+                (spawnEvent): INetworkObject => {
+                    return spawnEvent.spawn;
+                },
+            ),
+            // update modified old items
+            ...this.objects.map((obj) => {
+                const objectEvents: INetworkObjectEvent[] = this.state.networkObjectEvents.filter(
+                    (event) => event.objectId === obj.id,
+                );
+                const state: INetworkObjectState<INetworkObject>[] = [
+                    // filter old state objects to prevent large arrays
+                    ...obj.state.filter((s) => Date.parse(s.time) < +this.startTime),
+                    // add new object states
+                    ...objectEvents.map((event) => event.state),
+                ];
                 return {
-                    ...spawnEvent.spawn,
-                    state: [spawnState],
+                    ...applyStateToNetworkObject(obj),
+                    state,
                 };
-            },
-        );
+            }),
+        ];
 
         return {
             npcs,

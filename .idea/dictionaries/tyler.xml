@@ -4,6 +4,8 @@
       <w>npcs</w>
       <w>pathfinding</w>
       <w>respawn</w>
+      <w>respawned</w>
+      <w>respawning</w>
       <w>seedrandom</w>
       <w>teleport</w>
       <w>voronoi</w>

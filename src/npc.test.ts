@@ -9,7 +9,6 @@ const createNpc = (index: number): INpc => ({
     y: 0,
     path: [],
     readyTime: new Date().toISOString(),
-    directionMap: '',
     lastUpdate: new Date().toISOString(),
     creditLimit: 0,
     cash: 0,
@@ -36,6 +35,7 @@ const createNpc = (index: number): INpc => ({
         columns: 10,
         slots: [],
     },
+    inventoryState: [],
 });
 
 describe('CellController', () => {
@@ -81,51 +81,75 @@ describe('CellController', () => {
         });
         expect(controller).toBeTruthy();
     });
-    it('should run for 1 minute', () => {
-        const controller = new CellController({
-            npcs,
-            resources,
-            houses,
-            objects,
-        });
-        controller.run(60 * 1000);
-        expect(controller.getState()).toEqual({
-            npcs: expect.arrayContaining([
-                expect.objectContaining({
-                    path: expect.arrayContaining([
-                        expect.objectContaining({
-                            location: {
-                                x: expect.any(Number),
-                                y: expect.any(Number),
-                            },
-                            time: expect.any(String),
-                        }),
-                    ]),
-                }),
-            ]),
-            objects: expect.arrayContaining([
-                expect.objectContaining({
-                    exist: false,
-                    state: expect.arrayContaining([
-                        expect.objectContaining({
-                            state: expect.anything(),
-                            time: expect.any(String),
-                        }),
-                    ]),
-                }),
-            ]),
-            resources: expect.arrayContaining([
-                expect.objectContaining({
-                    state: expect.arrayContaining([
-                        expect.objectContaining({
-                            state: expect.anything(),
-                            time: expect.any(String),
-                        }),
-                    ]),
-                }),
-            ]),
-        });
-    });
+    /**
+     * Run the Cell Controller for a specified amount of time.
+     * @param milliseconds The number of milliseconds to simulate.
+     * @param steps The number of rounds of simulation.
+     */
+    const runSimulationForAmountOfTime = (milliseconds: number, steps: number = 1) => {
+        let initialNpcs: INpc[] = npcs;
+        let initialResources: IResource[] = resources;
+        let initialHouses: IHouse[] = houses;
+        let initialObjects: INetworkObject[] = objects;
+        for (let i = 0; i < steps; i++) {
+            const controller = new CellController({
+                npcs: initialNpcs,
+                resources: initialResources,
+                houses: initialHouses,
+                objects: initialObjects,
+            });
+            controller.run(Math.ceil(milliseconds / steps));
+            const stateResult = controller.getState();
+
+            // check to see valid formatted getState result
+            expect(stateResult).toEqual({
+                npcs: expect.arrayContaining([
+                    expect.objectContaining({
+                        path: expect.arrayContaining([
+                            expect.objectContaining({
+                                location: {
+                                    x: expect.any(Number),
+                                    y: expect.any(Number),
+                                },
+                                time: expect.any(String),
+                            }),
+                        ]),
+                    }),
+                ]),
+                objects: expect.arrayContaining([
+                    expect.objectContaining({
+                        exist: false,
+                        state: expect.arrayContaining([
+                            expect.objectContaining({
+                                state: expect.anything(),
+                                time: expect.any(String),
+                            }),
+                        ]),
+                    }),
+                ]),
+                resources: expect.arrayContaining([
+                    expect.objectContaining({
+                        state: expect.arrayContaining([
+                            expect.objectContaining({
+                                state: expect.anything(),
+                                time: expect.any(String),
+                            }),
+                        ]),
+                    }),
+                ]),
+            });
+
+            // copy last run into next Cell Controller
+            initialNpcs = stateResult.npcs;
+            initialResources = stateResult.resources;
+            initialObjects = stateResult.objects;
+        }
+    };
+    it('should run for 1 minute', () => runSimulationForAmountOfTime(60 * 1000));
+    it('should run for 2 minutes in 2 steps', () => runSimulationForAmountOfTime(2 * 60 * 1000, 2));
+    it('should run for 10 minutes', () => runSimulationForAmountOfTime(10 * 60 * 1000));
+    it('should run for 1 hour', () => runSimulationForAmountOfTime(60 * 60 * 1000));
+    it('should run for 5 hours', () => runSimulationForAmountOfTime(5 * 60 * 60 * 1000));
 });
 
 describe('applyPathToNpc', () => {
