@@ -586,6 +586,15 @@ export class CellController {
                         };
                         this.state.networkObjectEvents.push(mergeItemEvent);
                     }
+
+                    // inventory picked up item
+                    const destroyState: INetworkObjectState<INetworkObject> = {
+                        time: pickUpTime.toISOString(),
+                        state: {
+                            exist: false,
+                        },
+                    };
+                    spawnEvent.spawn.state.push(destroyState);
                 }
 
                 // update the npc inventory of the object that was just picked up.
