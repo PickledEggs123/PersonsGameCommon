@@ -830,6 +830,8 @@ export interface IApiPersonsGetResponse {
     cars: ICar[];
     objects: INetworkObject[];
     resources: IResource[];
+    stockpiles: IStockpile[];
+    stockpileTiles: IStockpileTile[];
     lots: ILot[];
     houses: IHouse[];
     walls: IWall[];

@@ -9,8 +9,8 @@ import {
     IResource,
     IStockpile,
 } from './types/GameTypes';
-import {HarvestResourceController} from './resources';
-import {InventoryController} from './inventory';
+import { HarvestResourceController } from './resources';
+import { InventoryController } from './inventory';
 
 /**
  * The input of the [[CellController]] which controls all npcs within a cell, collaboratively.
@@ -260,22 +260,27 @@ const internalApplyInventoryState = <T extends INpc | IStockpile>(npc: T, all: b
                 ...acc,
                 inventory: {
                     ...acc.inventory,
-                    rows: typeof inventoryState.rows === "number" ? inventoryState.rows : acc.inventory.rows,
-                    columns: typeof inventoryState.columns === "number" ? inventoryState.columns : acc.inventory.columns,
+                    rows: typeof inventoryState.rows === 'number' ? inventoryState.rows : acc.inventory.rows,
+                    columns:
+                        typeof inventoryState.columns === 'number' ? inventoryState.columns : acc.inventory.columns,
                     slots: [
-                        ...acc.inventory.slots.filter(slot => {
-                            return !inventoryState.remove.includes(slot.id) &&
-                                !inventoryState.add.some(s => s.id === slot.id)
-                        }).map(slot => {
-                            const matchingModify = inventoryState.modified.find(o => o.id === slot.id);
-                            if (matchingModify) {
-                                return matchingModify;
-                            } else {
-                                return slot;
-                            }
-                        }),
-                        ...inventoryState.add
-                    ]
+                        ...acc.inventory.slots
+                            .filter((slot) => {
+                                return (
+                                    !inventoryState.remove.includes(slot.id) &&
+                                    !inventoryState.add.some((s) => s.id === slot.id)
+                                );
+                            })
+                            .map((slot) => {
+                                const matchingModify = inventoryState.modified.find((o) => o.id === slot.id);
+                                if (matchingModify) {
+                                    return matchingModify;
+                                } else {
+                                    return slot;
+                                }
+                            }),
+                        ...inventoryState.add,
+                    ],
                 },
             };
         } else {
@@ -336,19 +341,16 @@ export const applyStateToNetworkObject = (networkObject: INetworkObject): INetwo
  */
 export const applyStateToResource = (resource: IResource): IResource => {
     const now = +new Date();
-    return resource.state.reduce(
-        (acc: IResource, state: INetworkObjectState<IResource>): IResource => {
-            if (now >= Date.parse(state.time)) {
-                return {
-                    ...acc,
-                    ...state.state,
-                };
-            } else {
-                return acc;
-            }
-        },
-        resource,
-    );
+    return resource.state.reduce((acc: IResource, state: INetworkObjectState<IResource>): IResource => {
+        if (now >= Date.parse(state.time)) {
+            return {
+                ...acc,
+                ...state.state,
+            };
+        } else {
+            return acc;
+        }
+    }, resource);
 };
 
 export class CellController {
@@ -396,13 +398,7 @@ export class CellController {
      */
     private currentMilliseconds: number;
 
-    constructor({
-        npcs,
-        resources,
-        houses,
-        objects,
-        stockpiles
-    }: ICellControllerParams) {
+    constructor({ npcs, resources, houses, objects, stockpiles }: ICellControllerParams) {
         this.npcs = npcs.map((npc) => applyPathToNpc(npc));
         this.resources = resources.map((resource) => applyStateToResource(resource));
         this.houses = houses;
@@ -544,23 +540,27 @@ export class CellController {
      */
     public static WAIT_TIME_AFTER_PICK_UP: number = 2000;
 
-    private walkNpcTowardsLocation({npcEvent, firstEventIndex, location}: {
-        npcEvent: ISimulationEvent<INpc>,
-        firstEventIndex: number,
-        location: INetworkObjectBase
+    private walkNpcTowardsLocation({
+        npcEvent,
+        firstEventIndex,
+        location,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+        location: INetworkObjectBase;
     }): {
-        duration: number,
-        npcReadyTime: Date,
-        npcEvent: ISimulationEvent<INpc>
+        duration: number;
+        npcReadyTime: Date;
+        npcEvent: ISimulationEvent<INpc>;
     } {
         // update npc to walk towards resource point
         const { path, duration } = this.generatePathToResource(npcEvent.data, location);
         const npcReadyTime: Date = new Date(
             +this.startTime +
-            this.currentMilliseconds +
-            duration +
-            CellController.WAIT_TIME_AFTER_WALKING +
-            CellController.WAIT_TIME_AFTER_PICK_UP,
+                this.currentMilliseconds +
+                duration +
+                CellController.WAIT_TIME_AFTER_WALKING +
+                CellController.WAIT_TIME_AFTER_PICK_UP,
         );
         npcEvent = {
             ...npcEvent,
@@ -578,7 +578,7 @@ export class CellController {
         return {
             duration,
             npcReadyTime,
-            npcEvent
+            npcEvent,
         };
     }
 
@@ -589,10 +589,10 @@ export class CellController {
      */
     private collectResources({
         npcEvent,
-        firstEventIndex
+        firstEventIndex,
     }: {
-        npcEvent: ISimulationEvent<INpc>,
-        firstEventIndex: number
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
     }) {
         // find ready resources
         const nextResourceIndex = this.getNextResourceIndex(npcEvent.data);
@@ -607,7 +607,7 @@ export class CellController {
         const { duration, npcReadyTime, npcEvent: npcEventWithPath } = this.walkNpcTowardsLocation({
             npcEvent,
             firstEventIndex,
-            location: nextResource
+            location: nextResource,
         });
         npcEvent = npcEventWithPath;
 
@@ -718,7 +718,7 @@ export class CellController {
                     time: pickUpTime.toISOString(),
                     add: updatedItem ? [updatedItem] : [],
                     modified: stackableSlots,
-                    remove: []
+                    remove: [],
                 },
             };
             this.state.npcInventoryEvents.push(npcInventoryEvent);
@@ -732,13 +732,13 @@ export class CellController {
                         ...npcEvent.data.inventory,
                     },
                     inventoryState: [...npcEvent.data.inventoryState, npcInventoryEvent.state],
-                    readyTime: npcReadyTime.toISOString()
+                    readyTime: npcReadyTime.toISOString(),
                 },
                 readyTime: npcReadyTime,
             };
             npcEvent = {
                 ...npcEvent,
-                data: applyFutureInventoryState(npcEvent.data)
+                data: applyFutureInventoryState(npcEvent.data),
             };
             this.state.npcs[firstEventIndex] = npcEvent;
         }
@@ -762,14 +762,14 @@ export class CellController {
                 this.currentMilliseconds += 1000;
                 continue;
             }
-            let npcEvent: ISimulationEvent<INpc> = this.state.npcs[firstEventIndex];
+            const npcEvent: ISimulationEvent<INpc> = this.state.npcs[firstEventIndex];
 
             // check to see if npc has inventory space
             if (CellController.hasInventorySpace(npcEvent.data)) {
                 // fetch resource
                 this.collectResources({
                     npcEvent,
-                    firstEventIndex
+                    firstEventIndex,
                 });
             } else {
                 // check for empty stockpiles
@@ -783,12 +783,12 @@ export class CellController {
                         npcEvent,
                         firstEventIndex,
                         stockpile,
-                        stockpileIndex
+                        stockpileIndex,
                     });
                 } else {
                     this.npcGoHome({
                         npcEvent,
-                        firstEventIndex
+                        firstEventIndex,
                     });
                 }
             }
@@ -798,9 +798,9 @@ export class CellController {
         // update npcs by removing long path arrays
         const npcs: INpc[] = this.state.npcs.map(
             (npcEvent): INpc => {
-                const npc = this.npcs.find(n => n.id === npcEvent.data.id);
+                const npc = this.npcs.find((n) => n.id === npcEvent.data.id);
                 if (!npc) {
-                    throw new Error("Cannot find initial copy of npc");
+                    throw new Error('Cannot find initial copy of npc');
                 }
 
                 // slice old npc paths to avoid it from growing to large
@@ -809,10 +809,7 @@ export class CellController {
                 if (firstRelevantPathPoint <= 0) {
                     path = npcEvent.data.path;
                 } else {
-                    path = [
-                        ...npc.path.slice(firstRelevantPathPoint - 1),
-                        ...npcEvent.data.path
-                    ];
+                    path = [...npc.path.slice(firstRelevantPathPoint - 1), ...npcEvent.data.path];
                 }
 
                 // get npc inventory events
@@ -824,7 +821,7 @@ export class CellController {
                     ...npc,
                     path,
                     inventoryState,
-                    lastUpdate: new Date().toISOString()
+                    lastUpdate: new Date().toISOString(),
                 };
             },
         );
@@ -832,9 +829,9 @@ export class CellController {
         // update npcs by removing long path arrays
         const stockpiles: IStockpile[] = this.state.stockpiles.map(
             (stockpile): IStockpile => {
-                const initialStockpile = this.stockpiles.find(s => s.id === stockpile.id);
+                const initialStockpile = this.stockpiles.find((s) => s.id === stockpile.id);
                 if (!initialStockpile) {
-                    throw new Error("Cannot find initial stockpile");
+                    throw new Error('Cannot find initial stockpile');
                 }
 
                 // get npc inventory events
@@ -843,8 +840,8 @@ export class CellController {
                 );
                 const now = new Date();
                 const inventoryState: IInventoryState[] = [
-                    ...initialStockpile.inventoryState.filter(event => Date.parse(event.time) > +now),
-                    ...relevantInventoryEvents.map((event) => event.state)
+                    ...initialStockpile.inventoryState.filter((event) => Date.parse(event.time) > +now),
+                    ...relevantInventoryEvents.map((event) => event.state),
                 ];
                 return {
                     ...initialStockpile,
@@ -874,7 +871,7 @@ export class CellController {
                 return {
                     ...initialResourceCopy,
                     state,
-                    lastUpdate: new Date().toISOString()
+                    lastUpdate: new Date().toISOString(),
                 };
             } else {
                 throw new Error('Could not find initial resource');
@@ -902,7 +899,7 @@ export class CellController {
                 return {
                     ...applyStateToNetworkObject(obj),
                     state,
-                    lastUpdate: new Date().toISOString()
+                    lastUpdate: new Date().toISOString(),
                 };
             }),
         ];
@@ -929,15 +926,15 @@ export class CellController {
         stockpile,
         stockpileIndex,
     }: {
-        npcEvent: ISimulationEvent<INpc>,
-        firstEventIndex: number,
-        stockpile: IStockpile,
-        stockpileIndex: number
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+        stockpile: IStockpile;
+        stockpileIndex: number;
     }) {
         const { npcReadyTime, npcEvent: npcEventWithPath } = this.walkNpcTowardsLocation({
             npcEvent,
             firstEventIndex,
-            location: stockpile
+            location: stockpile,
         });
         npcEvent = npcEventWithPath;
 
@@ -955,7 +952,7 @@ export class CellController {
             }
 
             // drop item
-            const {updatedItem: npcItem} = npcInventoryController.dropItem(item);
+            const { updatedItem: npcItem } = npcInventoryController.dropItem(item);
             if (npcItem) {
                 const dropItemEvent: INetworkObjectEvent = {
                     objectId: npcItem.id,
@@ -964,9 +961,9 @@ export class CellController {
                         time: npcReadyTime.toISOString(),
                         state: {
                             grabbedByNpcId: null,
-                            isInInventory: false
-                        }
-                    }
+                            isInInventory: false,
+                        },
+                    },
                 };
                 this.state.networkObjectEvents.push(dropItemEvent);
                 const npcDropItemEvent: INpcInventoryEvent = {
@@ -976,23 +973,20 @@ export class CellController {
                         time: npcReadyTime.toISOString(),
                         add: [],
                         modified: [],
-                        remove: [npcItem.id]
-                    }
+                        remove: [npcItem.id],
+                    },
                 };
                 this.state.npcInventoryEvents.push(npcDropItemEvent);
                 npcEvent = {
                     ...npcEvent,
                     data: {
                         ...npcEvent.data,
-                        inventoryState: [
-                            ...npcEvent.data.inventoryState,
-                            npcDropItemEvent.state
-                        ]
-                    }
+                        inventoryState: [...npcEvent.data.inventoryState, npcDropItemEvent.state],
+                    },
                 };
                 npcEvent = {
                     ...npcEvent,
-                    data: applyFutureInventoryState(npcEvent.data)
+                    data: applyFutureInventoryState(npcEvent.data),
                 };
                 this.state.npcs[firstEventIndex] = npcEvent;
 
@@ -1005,13 +999,13 @@ export class CellController {
                         time: npcReadyTime.toISOString(),
                         add: updatedItem ? [updatedItem] : [],
                         modified: stackableSlots,
-                        remove: []
-                    }
+                        remove: [],
+                    },
                 };
                 this.state.stockpileInventoryEvents.push(stockpileEvent);
                 this.state.stockpiles[stockpileIndex] = applyFutureInventoryState({
                     ...stockpile,
-                    inventoryState: [...stockpile.inventoryState, stockpileEvent.state]
+                    inventoryState: [...stockpile.inventoryState, stockpileEvent.state],
                 });
                 const moveToStockpileEvent: INetworkObjectEvent = {
                     objectId: npcItem.id,
@@ -1021,8 +1015,8 @@ export class CellController {
                         state: {
                             isInInventory: true,
                             insideStockpile: stockpile.id,
-                        }
-                    }
+                        },
+                    },
                 };
                 this.state.networkObjectEvents.push(moveToStockpileEvent);
             }
@@ -1034,21 +1028,15 @@ export class CellController {
      * @param npcEvent The npc data.
      * @param firstEventIndex The index of the npc data, used to modify array.
      */
-    private npcGoHome({
-        npcEvent,
-        firstEventIndex
-    }: {
-        npcEvent: ISimulationEvent<INpc>,
-        firstEventIndex: number
-    }) {
-        const home = this.houses.find(house => house.npcId === npcEvent.data.id);
+    private npcGoHome({ npcEvent, firstEventIndex }: { npcEvent: ISimulationEvent<INpc>; firstEventIndex: number }) {
+        const home = this.houses.find((house) => house.npcId === npcEvent.data.id);
         if (!home) {
-            throw new Error("Could not find a house for the NPC to go home to");
+            throw new Error('Could not find a house for the NPC to go home to');
         }
         this.walkNpcTowardsLocation({
             npcEvent,
             firstEventIndex,
-            location: home
+            location: home,
         });
     }
 }
