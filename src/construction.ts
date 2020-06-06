@@ -7,8 +7,7 @@ import {
     IApiPersonsConstructionPost,
     ICraftingRecipeItem,
     IFloor,
-    IHouse,
-    INetworkObject,
+    IHouse, INetworkObject,
     INpc,
     IObject,
     IPerson,
@@ -97,19 +96,13 @@ export class ConstructionController {
             x: location.x,
             y: location.y,
             objectType: ENetworkObjectType.POND,
-            grabbedByNpcId: null,
-            grabbedByPersonId: null,
-            isInInventory: false,
             health: {
                 rate: 0,
                 max: 1,
                 value: 1,
             },
             lastUpdate: new Date().toISOString(),
-            amount: 1,
             npcId: this.inventoryController.getHouseId(),
-            exist: true,
-            state: [],
         };
     }
 
@@ -129,17 +122,11 @@ export class ConstructionController {
             direction,
             objectType: ENetworkObjectType.POND,
             lastUpdate: new Date().toISOString(),
-            grabbedByPersonId: null,
-            grabbedByNpcId: null,
-            isInInventory: false,
             health: {
                 max: 1,
                 rate: 0,
                 value: 1,
             },
-            amount: 1,
-            exist: true,
-            state: [],
         };
     }
 
@@ -159,17 +146,11 @@ export class ConstructionController {
             floorPattern: EFloorPattern.DIRT,
             objectType: ENetworkObjectType.POND,
             lastUpdate: new Date().toISOString(),
-            grabbedByPersonId: null,
-            grabbedByNpcId: null,
-            isInInventory: false,
             health: {
                 max: 1,
                 rate: 0,
                 value: 1,
             },
-            amount: 1,
-            exist: true,
-            state: [],
         };
     }
 

@@ -4,11 +4,11 @@ import {
     IApiPersonsObjectDropPost,
     IApiPersonsObjectPickUpPost,
     ICraftingRecipe,
-    ICraftingRecipeItem,
-    INetworkObject,
+    ICraftingRecipeItem, INetworkObject,
     INpc,
     IPerson,
     IPersonsInventory,
+    IStockpile,
 } from './types/GameTypes';
 import * as seedrandom from 'seedrandom';
 
@@ -79,6 +79,7 @@ export const getMaxStackSize = (objectType: ENetworkObjectType): number => {
 export const listOfRecipes: ICraftingRecipe[] = [
     {
         product: ENetworkObjectType.WATTLE_WALL,
+        amount: 1,
         items: [
             {
                 item: ENetworkObjectType.STICK,
@@ -118,9 +119,13 @@ export class InventoryController {
      */
     private readonly isNpc: boolean;
     /**
+     * The inventory is attached to a stockpile.
+     */
+    private readonly isStockpile: boolean;
+    /**
      * The person or npc holding the inventory.
      */
-    private inventoryHolder: IPerson | INpc;
+    private inventoryHolder: IPerson | INpc | IStockpile;
     /**
      * The random number generator used to generate predictable random crafted item ids.
      */
@@ -132,7 +137,7 @@ export class InventoryController {
      * of the inventory after a specific set of operations.
      * @param inventoryHolder The inventory holding person or npc.
      */
-    constructor(inventoryHolder: IPerson | INpc) {
+    constructor(inventoryHolder: IPerson | INpc | IStockpile) {
         // handle inventory slots
         const inventory = inventoryHolder.inventory;
         this.numRows = inventory.rows;
@@ -141,8 +146,9 @@ export class InventoryController {
         this.slots = inventory.slots;
 
         // determine if the inventory holder is a person or an npc
-        this.isNpc = !!(inventoryHolder as INpc).path;
-        this.isPerson = !this.isNpc;
+        this.isStockpile = inventoryHolder.objectType === ENetworkObjectType.STOCKPILE;
+        this.isNpc = !this.isStockpile && !!(inventoryHolder as INpc).path;
+        this.isPerson = !this.isStockpile && !this.isNpc;
 
         // copy inventory holder
         this.inventoryHolder = inventoryHolder;
@@ -168,7 +174,7 @@ export class InventoryController {
         const stackableSlot: INetworkObject | undefined = slots.find((slot) => {
             return (
                 slot.objectType === itemToPickUp.objectType &&
-                slot.amount + itemToPickUp.amount <= getMaxStackSize(slot.objectType)
+                slot.amount + itemToPickUp.amount <= getMaxStackSize(slot.objectType) * (this.isStockpile ? 100 : 1)
             );
         });
         // find an empty slot which does not have an item
@@ -246,6 +252,64 @@ export class InventoryController {
      */
     pickUpItem(itemToPickUp: INetworkObject): IInventoryTransaction {
         return this.pickUpItemInternal(itemToPickUp);
+    }
+
+    /**
+     * Perform a stockpile insertion operation on an object.
+     * @param itemToInsert Item to insert into stockpile.
+     * @returns Updated item, must update original item.
+     * @returns null, must destroy original item.
+     */
+    insertIntoStockpile(itemToInsert: INetworkObject): IInventoryTransaction {
+        return this.pickUpItemInternal(itemToInsert);
+    }
+
+    /**
+     * Withdraw a specific amount of items from a stockpile slot.
+     * @param itemToWithdraw The item type to withdraw.
+     * @param amount The amount of items to withdraw.
+     */
+    withdrawFromStockpile(itemToWithdraw: INetworkObject, amount: number): IInventoryTransaction {
+        // find inventory copy of item
+        const internalItemToWithdraw = this.slots.find(slot => slot.id === itemToWithdraw.id);
+        if (!internalItemToWithdraw) {
+            throw new Error("Cannot find item to withdraw within inventory slots");
+        }
+
+        // compute max withdraw amount
+        const withdrawAmount = Math.min(amount, getMaxStackSize(itemToWithdraw.objectType), itemToWithdraw.amount);
+
+        if (internalItemToWithdraw.amount - withdrawAmount <= 0) {
+            this.slots = this.slots.filter(slot => slot.id !== internalItemToWithdraw.id);
+            return {
+                deletedSlots: [
+                    internalItemToWithdraw.id,
+                ],
+                modifiedSlots: [],
+                updatedItem: this.createItemType(internalItemToWithdraw.objectType, withdrawAmount),
+                stackableSlots: []
+            };
+        } else {
+            this.slots = this.slots.map(slot => {
+                if (slot.id === internalItemToWithdraw.id) {
+                    return {
+                        ...slot,
+                        amount: slot.amount - withdrawAmount
+                    };
+                } else {
+                    return slot;
+                }
+            });
+            return {
+                deletedSlots: [],
+                modifiedSlots: [{
+                    ...internalItemToWithdraw,
+                    amount: internalItemToWithdraw.amount - withdrawAmount
+                }],
+                updatedItem: this.createItemType(internalItemToWithdraw.objectType, withdrawAmount),
+                stackableSlots: []
+            };
+        }
     }
 
     /**
@@ -455,17 +519,19 @@ export class InventoryController {
     /**
      * Create a new item of a given object type.
      * @param objectType The type of item to create.
+     * @param amount The amount of items to create.
      */
-    createItemType(objectType: ENetworkObjectType): INetworkObject {
+    createItemType(objectType: ENetworkObjectType, amount: number = 1): INetworkObject {
         return {
             id: this.newCraftingItemId(),
             x: this.inventoryHolder.x,
             y: this.inventoryHolder.y,
             objectType,
-            amount: 1,
+            amount,
             isInInventory: true,
             grabbedByNpcId: this.isNpc ? this.inventoryHolder.id : null,
             grabbedByPersonId: this.isPerson ? this.inventoryHolder.id : null,
+            insideStockpile: this.isStockpile ? this.inventoryHolder.id : null,
             lastUpdate: new Date().toISOString(),
             health: {
                 rate: 0,
@@ -487,7 +553,7 @@ export class InventoryController {
         // there was enough materials to craft the recipe
 
         // create item and pick it up
-        const recipeItem: INetworkObject = this.createItemType(recipe.product);
+        const recipeItem: INetworkObject = this.createItemType(recipe.product, recipe.amount);
         return {
             ...this.pickUpItemInternal(recipeItem, slotsAfterCrafting),
             deletedSlots,

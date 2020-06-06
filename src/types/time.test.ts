@@ -1,6 +1,4 @@
 import 'jest';
-import { ENetworkObjectType } from './GameTypes';
-import { getMaxStackSize } from '../inventory';
 import { getCurrentTDayNightTime } from './time';
 
 describe('Time Functions', () => {

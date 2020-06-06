@@ -1,4 +1,9 @@
-import { IApiPersonsResourceHarvestPost, INetworkObject, IResource, IResourceSpawn } from './types/GameTypes';
+import {
+    IApiPersonsResourceHarvestPost,
+    INetworkObject,
+    IResource,
+    IResourceSpawn
+} from './types/GameTypes';
 import * as seedrandom from 'seedrandom';
 
 /**
@@ -107,12 +112,14 @@ export class HarvestResourceController {
             id: `object-${this.rng.int32()}`,
             grabbedByPersonId: null,
             grabbedByNpcId: null,
+            insideStockpile: null,
             isInInventory: false,
             amount: 1,
             exist: true,
             state: [],
         };
-        const respawnTime = Math.ceil(this.rng.quick() * spawn.spawnTime);
+        // calculate respawn time, should be from 0.5 to 1.5 times the value in milliseconds.
+        const respawnTime = Math.ceil(this.rng.quick() * spawn.spawnTime + spawn.spawnTime * 0.5);
 
         return {
             spawn: spawnItem,

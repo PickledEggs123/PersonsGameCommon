@@ -1,5 +1,6 @@
 import * as seedrandom from 'seedrandom';
 import { TDayNightTime } from './time';
+import {prng} from "seedrandom";
 
 /**
  * The base interface for all game objects.
@@ -19,6 +20,7 @@ export interface IObject {
  * The type of object being networked. They are drawn differently and behave differently
  */
 export enum ENetworkObjectType {
+    STOCKPILE = 'STOCKPILE',
     PERSON = 'PERSON',
     /**
      * Manufacturing products.
@@ -98,12 +100,12 @@ export interface IObjectHealth {
 /**
  * Contain state changes of the object throughout it's lifetime.
  */
-export interface INetworkObjectState<T extends INetworkObject> {
+export interface INetworkObjectState<T extends INetworkObjectBase> {
     time: string;
     state: Partial<T>;
 }
 
-export interface INetworkObject extends IObject {
+export interface INetworkObjectBase extends IObject {
     /**
      * The randomly generated unique id of the person. Each person has a unique id for selecting and controlling them.
      */
@@ -122,21 +124,12 @@ export interface INetworkObject extends IObject {
      */
     lastUpdate: string;
     /**
-     * This object is being grabbed by this person. The object will follow the person.
-     */
-    grabbedByPersonId: string | null;
-    /**
-     * This object is being grabbed by an NPC. The object will follow the npc.
-     */
-    grabbedByNpcId: string | null;
-    /**
-     * This object is inside an inventory, it should not be rendered in the world.
-     */
-    isInInventory: boolean;
-    /**
      * Contains the health related information of the object.
      */
     health: IObjectHealth;
+}
+
+export interface INetworkObject extends INetworkObjectBase {
     /**
      * How many copies of an item is in this stack of items.
      */
@@ -149,6 +142,22 @@ export interface INetworkObject extends IObject {
      * A list of state changes on the object through time.
      */
     state: INetworkObjectState<INetworkObject>[];
+    /**
+     * This object is being grabbed by this person. The object will follow the person.
+     */
+    grabbedByPersonId: string | null;
+    /**
+     * This object is being grabbed by an NPC. The object will follow the npc.
+     */
+    grabbedByNpcId: string | null;
+    /**
+     * This object is inside of a stockpile.
+     */
+    insideStockpile: string | null;
+    /**
+     * This object is inside an inventory, it should not be rendered in the world.
+     */
+    isInInventory: boolean;
 }
 
 /**
@@ -163,7 +172,7 @@ export interface IPersonsInventory {
 /**
  * The base interface for all people in the game.
  */
-export interface IPerson extends INetworkObject {
+export interface IPerson extends INetworkObjectBase {
     /**
      * The customizable shirt color of the person.
      */
@@ -224,7 +233,7 @@ export interface IResourceSpawn {
  * Represent a resource that can generate items when clicked. An example is a tree which spawns wood or a rock that spawns
  * stone.
  */
-export interface IResource extends INetworkObject {
+export interface IResource extends INetworkObjectBase {
     /**
      * A string that is used in a random number generator to generate the probability of a spawn.
      */
@@ -304,7 +313,7 @@ export interface IVendorInventoryItem {
 /**
  * An object that sells other objects.
  */
-export interface IVendor extends INetworkObject {
+export interface IVendor extends INetworkObjectBase {
     inventory: IVendorInventoryItem[];
 }
 
@@ -329,11 +338,51 @@ export interface IOwner {
 /**
  * Houses provide a location for NPCs to store things, work from, and sleep.
  */
-export interface IHouse extends INetworkObject, IOwner {
+export interface IHouse extends INetworkObjectBase, IOwner {
     /**
      * The npc id of the NPC that lives in the house.
      */
     npcId: string;
+}
+
+/**
+ * A building or land area which can store items.
+ */
+export interface IStockpile extends INetworkObjectBase, IOwner {
+    /**
+     * The inventory of the stockpile.
+     */
+    inventory: IPersonsInventory;
+    /**
+     * The stockpile is object type stockpile.
+     */
+    objectType: ENetworkObjectType.STOCKPILE;
+    /**
+     * A seed used to generate random crafting ids.
+     */
+    craftingSeed: string;
+    /**
+     * The state of the random number generator used to generate new item ids.
+     */
+    craftingState: true | seedrandom.State;
+    /**
+     * Represent the change to npc inventory over time.
+     */
+    inventoryState: IInventoryState[];
+}
+
+/**
+ * A tile or 200 by 200 pixel area on the ground, related to a stockpile.
+ */
+export interface IStockpileTile extends INetworkObjectBase, IOwner {
+    /**
+     * The id of the stockpile the stockpile tile is related to.
+     */
+    stockpileId: string;
+    /**
+     * The index into the stockpile inventory. Used to render slices of the stockpile.
+     */
+    stockpileIndex: number;
 }
 
 /**
@@ -354,7 +403,7 @@ export enum EWallPattern {
 /**
  * A wall instance which represent a wall tile of a house.
  */
-export interface IWall extends INetworkObject, IOwner {
+export interface IWall extends INetworkObjectBase, IOwner {
     direction: EWallDirection;
     wallPattern: EWallPattern;
 }
@@ -369,7 +418,7 @@ export enum EFloorPattern {
 /**
  * A floor tile for a house.
  */
-export interface IFloor extends INetworkObject, IOwner {
+export interface IFloor extends INetworkObjectBase, IOwner {
     /**
      * The pattern of the floor.
      */
@@ -567,6 +616,10 @@ export interface ICraftingRecipe {
      */
     product: ENetworkObjectType;
     /**
+     * The amount of product to produce.
+     */
+    amount: number;
+    /**
      * The inputs of the recipe.
      */
     items: ICraftingRecipeItem[];
@@ -705,7 +758,7 @@ export interface ICity {
     /**
      * A list of objects in the city.
      */
-    objects: INetworkObject[];
+    objects: INetworkObjectBase[];
 }
 
 /**
@@ -721,7 +774,7 @@ export enum ECarDirection {
 /**
  * A car that can contain people who can drive around.
  */
-export interface ICar extends INetworkObject {
+export interface ICar extends INetworkObjectBase {
     /**
      * The direction the car is facing.
      */
@@ -775,7 +828,7 @@ export interface IApiPersonsGetResponse {
     persons: IPerson[];
     npcs: INpc[];
     cars: ICar[];
-    objects: INetworkObject[];
+    objects: INetworkObjectBase[];
     resources: IResource[];
     lots: ILot[];
     houses: IHouse[];
@@ -848,7 +901,7 @@ export interface IApiPersonsPut {
     /**
      * A list of objects.
      */
-    objects: INetworkObject[];
+    objects: INetworkObjectBase[];
 }
 
 /**
@@ -879,6 +932,14 @@ export interface IApiPersonsObjectCraftPost {
  * The HTTP /persons/construction post request.
  */
 export interface IApiPersonsConstructionPost {
+    personId: string;
+    location: IObject;
+}
+
+/**
+ * The HTTP /persons/construction/stockpile post request.
+ */
+export interface IApiPersonsConstructionStockpilePost {
     personId: string;
     location: IObject;
 }
@@ -1055,7 +1116,11 @@ export interface INpcSchedule {
  */
 export interface IInventoryState {
     time: string;
-    state: IPersonsInventory;
+    add: INetworkObject[];
+    remove: string[];
+    modified: INetworkObject[];
+    rows?: number;
+    columns?: number;
 }
 
 /**

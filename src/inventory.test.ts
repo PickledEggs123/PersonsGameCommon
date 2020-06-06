@@ -1,6 +1,6 @@
 import 'jest';
 import { getMaxStackSize, InventoryController, listOfRecipes } from './inventory';
-import { ENetworkObjectType, ICraftingRecipe, INetworkObject, IPerson } from './types/GameTypes';
+import {ENetworkObjectType, ICraftingRecipe, INetworkObject, IPerson} from './types/GameTypes';
 
 describe('InventoryController', () => {
     const person: IPerson = {
@@ -14,15 +14,11 @@ describe('InventoryController', () => {
         creditLimit: 1000,
         objectType: ENetworkObjectType.PERSON,
         lastUpdate: new Date().toISOString(),
-        grabbedByPersonId: null,
-        grabbedByNpcId: null,
-        isInInventory: false,
         health: {
             rate: 0,
             max: 10,
             value: 10,
         },
-        amount: 1,
         inventory: {
             rows: 1,
             columns: 10,
@@ -30,8 +26,6 @@ describe('InventoryController', () => {
         },
         craftingSeed: 'craftingSeed',
         craftingState: true,
-        exist: true,
-        state: [],
     };
 
     it('should create inventory controller', () => {
@@ -52,6 +46,7 @@ describe('InventoryController', () => {
             lastUpdate: new Date().toISOString(),
             grabbedByNpcId: null,
             grabbedByPersonId: null,
+            insideStockpile: null,
             isInInventory: false,
             health: {
                 rate: 0,

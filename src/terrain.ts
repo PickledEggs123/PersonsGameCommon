@@ -74,9 +74,6 @@ export const createResource = (point: IObject, objectType: ENetworkObjectType): 
         spawnSeed: `resource(${x},${y})`,
         spawns,
         lastUpdate: new Date().toISOString(),
-        grabbedByPersonId: null,
-        grabbedByNpcId: null,
-        isInInventory: false,
         health: {
             rate: 0,
             max: 10,
@@ -85,8 +82,6 @@ export const createResource = (point: IObject, objectType: ENetworkObjectType): 
         depleted: false,
         readyTime: new Date().toISOString(),
         spawnState: true,
-        amount: 1,
-        exist: true,
         state: [],
     };
     if (objectType === ENetworkObjectType.TREE) {

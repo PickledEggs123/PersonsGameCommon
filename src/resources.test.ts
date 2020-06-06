@@ -1,6 +1,6 @@
 import 'jest';
 import { HarvestResourceController } from './resources';
-import { ENetworkObjectType, INetworkObject, IObject, IResource } from './types/GameTypes';
+import {ENetworkObjectType, INetworkObject, IObject, IResource} from './types/GameTypes';
 import { createResource } from './terrain';
 
 describe('HarvestResourceController', () => {

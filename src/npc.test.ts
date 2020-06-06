@@ -1,7 +1,17 @@
 import 'jest';
-import { applyPathToNpc, applyStateToNetworkObject, CellController } from './npc';
-import { ENetworkObjectType, IHouse, INetworkObject, INpc, INpcPathPoint, IObject, IResource } from './types/GameTypes';
-import { createResource } from './terrain';
+import {applyPathToNpc, applyStateToNetworkObject, CellController} from './npc';
+import {
+    ENetworkObjectType,
+    EOwnerType,
+    IHouse,
+    INetworkObject,
+    INpc,
+    INpcPathPoint,
+    IObject,
+    IResource,
+    IStockpile
+} from './types/GameTypes';
+import {createResource} from './terrain';
 
 const createNpc = (index: number): INpc => ({
     id: `npc${index}`,
@@ -16,13 +26,7 @@ const createNpc = (index: number): INpc => ({
     craftingSeed: 'craftingSeed',
     shirtColor: 'blue',
     pantColor: 'brown',
-    grabbedByPersonId: null,
-    grabbedByNpcId: null,
-    isInInventory: false,
-    exist: true,
-    state: [],
     schedule: [],
-    amount: 1,
     health: {
         rate: 0,
         max: 1,
@@ -39,38 +43,55 @@ const createNpc = (index: number): INpc => ({
 });
 
 describe('CellController', () => {
-    const npcs: INpc[] = [createNpc(1), createNpc(2)];
-    const resources: IResource[] = [
-        createResource(
-            {
-                x: 0,
-                y: 0,
-            },
-            ENetworkObjectType.TREE,
-        ),
-        createResource(
-            {
-                x: 1000,
-                y: 0,
-            },
-            ENetworkObjectType.TREE,
-        ),
-        createResource(
-            {
-                x: 1000,
-                y: 1000,
-            },
-            ENetworkObjectType.TREE,
-        ),
-        createResource(
-            {
-                x: 0,
-                y: 1000,
-            },
-            ENetworkObjectType.TREE,
-        ),
-    ];
-    const houses: IHouse[] = [];
+    const npcs: INpc[] = new Array(10).fill(0).map((v, i) => createNpc(i));
+    const houses: IHouse[] = npcs.map((npc, index): IHouse => ({
+        id: `house-${npc.id}`,
+        npcId: npc.id,
+        x: index * 100,
+        y: 0,
+        ownerType: EOwnerType.PERSON,
+        ownerId: "person",
+        objectType: ENetworkObjectType.POND,
+        lastUpdate: new Date().toISOString(),
+        health: {
+            rate: 0,
+            max: 1,
+            value: 1
+        }
+    }));
+    const resources: IResource[] = new Array(10).fill(0).reduce((acc, v, x) => {
+        return [
+            ...acc,
+            ...new Array(10).fill(0).map((w, y) => {
+                return createResource({
+                    x: x * 100,
+                    y: y * 100
+                }, ENetworkObjectType.TREE);
+            })
+        ];
+    },[]);
+    const stockpiles: IStockpile[] = [{
+        id: "stockpile",
+        x: 0,
+        y: 0,
+        inventory: {
+            rows: 1,
+            columns: 10,
+            slots: []
+        },
+        ownerId: "person",
+        ownerType: EOwnerType.PERSON,
+        objectType: ENetworkObjectType.STOCKPILE,
+        inventoryState: [],
+        craftingSeed: "stockpile",
+        craftingState: true,
+        lastUpdate: new Date().toISOString(),
+        health: {
+            rate: 0,
+            max: 1,
+            value: 1
+        }
+    }];
     const objects: INetworkObject[] = [];
     it('should create an instance', () => {
         const controller = new CellController({
@@ -78,6 +99,7 @@ describe('CellController', () => {
             resources,
             houses,
             objects,
+            stockpiles
         });
         expect(controller).toBeTruthy();
     });
@@ -91,12 +113,14 @@ describe('CellController', () => {
         let initialResources: IResource[] = resources;
         let initialHouses: IHouse[] = houses;
         let initialObjects: INetworkObject[] = objects;
+        let initialStockpiles: IStockpile[] = stockpiles;
         for (let i = 0; i < steps; i++) {
             const controller = new CellController({
                 npcs: initialNpcs,
                 resources: initialResources,
                 houses: initialHouses,
                 objects: initialObjects,
+                stockpiles: initialStockpiles
             });
             controller.run(Math.ceil(milliseconds / steps));
             const stateResult = controller.getState();
@@ -114,6 +138,7 @@ describe('CellController', () => {
                                 time: expect.any(String),
                             }),
                         ]),
+                        inventoryState: expect.anything()
                     }),
                 ]),
                 objects: expect.arrayContaining([
@@ -137,12 +162,14 @@ describe('CellController', () => {
                         ]),
                     }),
                 ]),
+                stockpiles: expect.anything()
             });
 
             // copy last run into next Cell Controller
             initialNpcs = stateResult.npcs;
             initialResources = stateResult.resources;
             initialObjects = stateResult.objects;
+            initialStockpiles = stateResult.stockpiles;
         }
     };
     it('should run for 1 minute', () => runSimulationForAmountOfTime(60 * 1000));
@@ -232,6 +259,7 @@ describe('applyStateToNetworkObject', () => {
         id: 'obj1',
         x: 0,
         y: 0,
+        insideStockpile: null,
         grabbedByNpcId: null,
         grabbedByPersonId: null,
         isInInventory: false,
