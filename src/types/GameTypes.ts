@@ -936,6 +936,7 @@ export interface IApiPersonsObjectCraftPost {
 export interface IApiPersonsStockpileWithdrawPost {
     personId: string;
     objectId: string;
+    stockpileId: string;
     amount: number;
 }
 
@@ -945,6 +946,7 @@ export interface IApiPersonsStockpileWithdrawPost {
 export interface IApiPersonsStockpileDepositPost {
     personId: string;
     objectId: string;
+    stockpileId: string;
 }
 
 /**

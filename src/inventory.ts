@@ -331,16 +331,19 @@ export class InventoryController {
      * Return the post request used to create a withdraw item from stockpile request.
      * @param person The person withdrawing an item.
      * @param networkObject The item to withdraw.
+     * @param stockpile The stockpile to withdraw from.
      * @param amount The amount to withdraw from the object.
      */
     withdrawItemFromStockpileRequest(
         person: IPerson,
         networkObject: INetworkObject,
+        stockpile: IStockpile,
         amount: number,
     ): IApiPersonsStockpileWithdrawPost {
         return {
             personId: person.id,
             objectId: networkObject.id,
+            stockpileId: stockpile.id,
             amount,
         };
     }
@@ -349,11 +352,17 @@ export class InventoryController {
      * Return the post request used to create a deposit item into stockpile request.
      * @param person The person depositing an item.
      * @param networkObject The item to deposit.
+     * @param stockpile The stockpile to deposit into.
      */
-    depositItemIntoStockpileRequest(person: IPerson, networkObject: INetworkObject): IApiPersonsStockpileDepositPost {
+    depositItemIntoStockpileRequest(
+        person: IPerson,
+        networkObject: INetworkObject,
+        stockpile: IStockpile,
+    ): IApiPersonsStockpileDepositPost {
         return {
             personId: person.id,
             objectId: networkObject.id,
+            stockpileId: stockpile.id,
         };
     }
 
