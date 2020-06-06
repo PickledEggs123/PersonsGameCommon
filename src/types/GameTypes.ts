@@ -758,7 +758,7 @@ export interface ICity {
     /**
      * A list of objects in the city.
      */
-    objects: INetworkObjectBase[];
+    objects: INetworkObject[];
 }
 
 /**
@@ -828,7 +828,7 @@ export interface IApiPersonsGetResponse {
     persons: IPerson[];
     npcs: INpc[];
     cars: ICar[];
-    objects: INetworkObjectBase[];
+    objects: INetworkObject[];
     resources: IResource[];
     lots: ILot[];
     houses: IHouse[];
@@ -901,7 +901,7 @@ export interface IApiPersonsPut {
     /**
      * A list of objects.
      */
-    objects: INetworkObjectBase[];
+    objects: INetworkObject[];
 }
 
 /**
