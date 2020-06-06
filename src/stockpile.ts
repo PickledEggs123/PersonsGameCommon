@@ -3,7 +3,9 @@ import {
     EOwnerType,
     IApiPersonsConstructionStockpilePost,
     IObject,
-    IPerson, IStockpile, IStockpileTile,
+    IPerson,
+    IStockpile,
+    IStockpileTile,
 } from './types/GameTypes';
 
 /**
@@ -85,11 +87,11 @@ export class StockpileController {
             inventory: {
                 rows: 40,
                 columns: 10,
-                slots: []
+                slots: [],
             },
             craftingSeed: stockpileId,
             craftingState: true,
-            inventoryState: []
+            inventoryState: [],
         };
     }
 
@@ -113,7 +115,7 @@ export class StockpileController {
                 rate: 0,
                 value: 1,
             },
-            stockpileIndex: 0
+            stockpileIndex: 0,
         };
     }
 
@@ -185,46 +187,55 @@ export class StockpileController {
             stockpilesToAdd = [];
             stockpileTilesToAdd = [];
             stockpileTilesToRemove = stockpileTiles.filter((tile) => tile.x === location.x && tile.y === location.y);
-            stockpilesToRemove = stockpileStockpileTiles.filter(tile => {
-                return !stockpileTilesToRemove.some(t => t.id === tile.id);
-            }).length <= 1 ? stockpiles.filter((stockpile) => {
-                return stockpile.id === stockpileId;
-            }).map((stockpile) => ({
-                ...stockpile,
-                inventory: {
-                    ...stockpile.inventory,
-                    rows: 0,
-                    columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE
-                },
-                lastUpdate: new Date().toISOString()
-            })) : [];
-            stockpileTilesToModify = stockpileTiles.filter((tile) => {
-                return !stockpileTilesToRemove.some(t => t.id === tile.id);
-            }).map((tile, index) => ({
-                ...tile,
-                stockpileIndex: index,
-                lastUpdate: new Date().toISOString()
-            }));
-            stockpilesToModify = stockpiles.filter(stockpile => {
-                return stockpile.id === stockpileId &&
-                    !stockpilesToRemove.some(s => s.id === stockpile.id);
-            }).map((stockpile) => ({
-                ...stockpile,
-                inventory: {
-                    ...stockpile.inventory,
-                    rows: stockpileTilesToModify.filter(tile => {
-                        return tile.stockpileId === stockpile.id
-                    }).length * StockpileController.NUMBER_OF_ROWS_PER_STOCKPILE_TILE,
-                    columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE
-                },
-                lastUpdate: new Date().toISOString()
-            }));
+            stockpilesToRemove =
+                stockpileStockpileTiles.filter((tile) => {
+                    return !stockpileTilesToRemove.some((t) => t.id === tile.id);
+                }).length <= 1
+                    ? stockpiles
+                          .filter((stockpile) => {
+                              return stockpile.id === stockpileId;
+                          })
+                          .map((stockpile) => ({
+                              ...stockpile,
+                              inventory: {
+                                  ...stockpile.inventory,
+                                  rows: 0,
+                                  columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE,
+                              },
+                              lastUpdate: new Date().toISOString(),
+                          }))
+                    : [];
+            stockpileTilesToModify = stockpileTiles
+                .filter((tile) => {
+                    return !stockpileTilesToRemove.some((t) => t.id === tile.id);
+                })
+                .map((tile, index) => ({
+                    ...tile,
+                    stockpileIndex: index,
+                    lastUpdate: new Date().toISOString(),
+                }));
+            stockpilesToModify = stockpiles
+                .filter((stockpile) => {
+                    return stockpile.id === stockpileId && !stockpilesToRemove.some((s) => s.id === stockpile.id);
+                })
+                .map((stockpile) => ({
+                    ...stockpile,
+                    inventory: {
+                        ...stockpile.inventory,
+                        rows:
+                            stockpileTilesToModify.filter((tile) => {
+                                return tile.stockpileId === stockpile.id;
+                            }).length * StockpileController.NUMBER_OF_ROWS_PER_STOCKPILE_TILE,
+                        columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE,
+                    },
+                    lastUpdate: new Date().toISOString(),
+                }));
 
             // check to see if newly modified stockpile has inventory space to store items
             for (const stockpile of [...stockpilesToModify, ...stockpilesToRemove]) {
                 const maxSlots = stockpile.inventory.rows * stockpile.inventory.columns;
                 if (stockpile.inventory.slots.length > maxSlots) {
-                    throw new Error("Cannot remove stockpile tile, please remove items in inventory first");
+                    throw new Error('Cannot remove stockpile tile, please remove items in inventory first');
                 }
             }
         } else {
@@ -252,11 +263,25 @@ export class StockpileController {
 
             // check building constraints, largest stockpile is 5 by 5
             const afterConstructionStockpileTiles = [...stockpileTiles, ...stockpileTilesToAdd];
-            const stockpileStockpileTiles = afterConstructionStockpileTiles.filter((tile) => tile.stockpileId === stockpileId);
-            const minX = stockpileStockpileTiles.reduce((acc: number, tile: IStockpileTile): number => Math.min(acc, tile.x), Infinity);
-            const maxX = stockpileStockpileTiles.reduce((acc: number, tile: IStockpileTile): number => Math.max(acc, tile.x), -Infinity);
-            const minY = stockpileStockpileTiles.reduce((acc: number, tile: IStockpileTile): number => Math.min(acc, tile.y), Infinity);
-            const maxY = stockpileStockpileTiles.reduce((acc: number, tile: IStockpileTile): number => Math.max(acc, tile.y), -Infinity);
+            const stockpileStockpileTiles = afterConstructionStockpileTiles.filter(
+                (tile) => tile.stockpileId === stockpileId,
+            );
+            const minX = stockpileStockpileTiles.reduce(
+                (acc: number, tile: IStockpileTile): number => Math.min(acc, tile.x),
+                Infinity,
+            );
+            const maxX = stockpileStockpileTiles.reduce(
+                (acc: number, tile: IStockpileTile): number => Math.max(acc, tile.x),
+                -Infinity,
+            );
+            const minY = stockpileStockpileTiles.reduce(
+                (acc: number, tile: IStockpileTile): number => Math.min(acc, tile.y),
+                Infinity,
+            );
+            const maxY = stockpileStockpileTiles.reduce(
+                (acc: number, tile: IStockpileTile): number => Math.max(acc, tile.y),
+                -Infinity,
+            );
             if (maxX - minX >= 5 * 200) {
                 throw new Error('Stockpile is too long east to west');
             }
@@ -268,22 +293,27 @@ export class StockpileController {
             stockpileTilesToModify = stockpileTiles.map((tile, index) => ({
                 ...tile,
                 stockpileIndex: index,
-                lastUpdate: new Date().toISOString()
+                lastUpdate: new Date().toISOString(),
             }));
             newStockpileTile.stockpileIndex = stockpileTiles.length;
-            stockpilesToModify = stockpiles.filter(stockpile => {
-                return stockpile.id === stockpileId;
-            }).map(stockpile => ({
-                ...stockpile,
-                inventory: {
-                    ...stockpile.inventory,
-                    rows: (stockpileTilesToModify.filter(tile => {
-                        return tile.stockpileId === stockpileId;
-                    }).length + 1) * StockpileController.NUMBER_OF_ROWS_PER_STOCKPILE_TILE,
-                    columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE
-                },
-                lastUpdate: new Date().toISOString()
-            }));
+            stockpilesToModify = stockpiles
+                .filter((stockpile) => {
+                    return stockpile.id === stockpileId;
+                })
+                .map((stockpile) => ({
+                    ...stockpile,
+                    inventory: {
+                        ...stockpile.inventory,
+                        rows:
+                            (stockpileTilesToModify.filter((tile) => {
+                                return tile.stockpileId === stockpileId;
+                            }).length +
+                                1) *
+                            StockpileController.NUMBER_OF_ROWS_PER_STOCKPILE_TILE,
+                        columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE,
+                    },
+                    lastUpdate: new Date().toISOString(),
+                }));
         }
 
         return {
@@ -312,28 +342,25 @@ export class StockpileController {
         });
 
         // update local copy
-        const updateLocalCopy = <T extends {id: string}>(arr: T[], toModify: T[], toAdd: T[], toRemove: T[]): T[] => {
+        const updateLocalCopy = <T extends { id: string }>(arr: T[], toModify: T[], toAdd: T[], toRemove: T[]): T[] => {
             return [
-                ...arr.filter(stockpile => {
-                    return !toModify.some(s => s.id === stockpile.id) &&
-                        !toAdd.some(s => s.id === stockpile.id) &&
-                        !toRemove.some(s => s.id === stockpile.id);
+                ...arr.filter((stockpile) => {
+                    return (
+                        !toModify.some((s) => s.id === stockpile.id) &&
+                        !toAdd.some((s) => s.id === stockpile.id) &&
+                        !toRemove.some((s) => s.id === stockpile.id)
+                    );
                 }),
                 ...toModify,
-                ...toAdd
+                ...toAdd,
             ];
         };
-        this.stockpiles = updateLocalCopy(
-            this.stockpiles,
-            stockpilesToModify,
-            stockpilesToAdd,
-            stockpilesToRemove
-        );
+        this.stockpiles = updateLocalCopy(this.stockpiles, stockpilesToModify, stockpilesToAdd, stockpilesToRemove);
         this.stockpileTiles = updateLocalCopy(
             this.stockpileTiles,
             stockpileTilesToModify,
             stockpileTilesToAdd,
-            stockpileTilesToRemove
+            stockpileTilesToRemove,
         );
 
         return {
@@ -342,7 +369,7 @@ export class StockpileController {
             stockpilesToRemove,
             stockpileTilesToAdd,
             stockpileTilesToModify,
-            stockpileTilesToRemove
+            stockpileTilesToRemove,
         };
     }
 

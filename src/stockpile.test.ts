@@ -1,7 +1,7 @@
 import 'jest';
-import {ENetworkObjectType, IObject, IPerson} from './types/GameTypes';
-import {StockpileController} from "./stockpile";
-import {getMaxStackSize, InventoryController} from "./inventory";
+import { ENetworkObjectType, IObject, IPerson } from './types/GameTypes';
+import { StockpileController } from './stockpile';
+import { getMaxStackSize, InventoryController } from './inventory';
 
 describe('Stockpile Controller', () => {
     const person: IPerson = {
@@ -71,7 +71,7 @@ describe('Stockpile Controller', () => {
             }),
             stockpileTiles: expect.objectContaining({
                 length: 1,
-            })
+            }),
         });
     });
     it('should construct 2x2 stockpile', () => {
@@ -110,7 +110,7 @@ describe('Stockpile Controller', () => {
             }),
             stockpileTiles: expect.objectContaining({
                 length: 4,
-            })
+            }),
         });
     });
     it('should construct 3x3 building', () => {
@@ -169,7 +169,7 @@ describe('Stockpile Controller', () => {
             }),
             stockpileTiles: expect.objectContaining({
                 length: 9,
-            })
+            }),
         });
     });
     it('should construct 3x3 building then remove', () => {
@@ -228,7 +228,7 @@ describe('Stockpile Controller', () => {
             }),
             stockpileTiles: expect.objectContaining({
                 length: 9,
-            })
+            }),
         });
         for (const location of locations) {
             controller.constructStockpile({
@@ -241,7 +241,7 @@ describe('Stockpile Controller', () => {
             }),
             stockpileTiles: expect.objectContaining({
                 length: 0,
-            })
+            }),
         });
     });
     it('should fail to remove tile with one item in it', () => {
@@ -259,14 +259,17 @@ describe('Stockpile Controller', () => {
         });
 
         // add a stick to the stockpile
-        const {
-            stockpiles,
-            stockpileTiles
-        } = controller.getState();
+        const { stockpiles, stockpileTiles } = controller.getState();
         const inventoryController = new InventoryController(stockpiles[0]);
-        const stickItem = inventoryController.createItemType(ENetworkObjectType.STICK, getMaxStackSize(ENetworkObjectType.STICK));
+        const stickItem = inventoryController.createItemType(
+            ENetworkObjectType.STICK,
+            getMaxStackSize(ENetworkObjectType.STICK),
+        );
         inventoryController.insertIntoStockpile(stickItem);
-        const stickItem2 = inventoryController.createItemType(ENetworkObjectType.STICK, getMaxStackSize(ENetworkObjectType.STICK));
+        const stickItem2 = inventoryController.createItemType(
+            ENetworkObjectType.STICK,
+            getMaxStackSize(ENetworkObjectType.STICK),
+        );
         inventoryController.insertIntoStockpile(stickItem2);
         stockpiles[0].inventory = inventoryController.getInventory();
         const stickStockpileItem = stockpiles[0].inventory.slots[0];
@@ -275,14 +278,16 @@ describe('Stockpile Controller', () => {
         const controller2 = new StockpileController({
             person,
             stockpiles,
-            stockpileTiles
+            stockpileTiles,
         });
-        expect(() => controller2.constructStockpile({
-            location: {
-                x: 0,
-                y: 0
-            }
-        })).toThrow("Cannot remove stockpile tile, please remove items in inventory first");
+        expect(() =>
+            controller2.constructStockpile({
+                location: {
+                    x: 0,
+                    y: 0,
+                },
+            }),
+        ).toThrow('Cannot remove stockpile tile, please remove items in inventory first');
 
         // remove stick
         const inventoryController2 = new InventoryController(stockpiles[0]);
@@ -294,13 +299,13 @@ describe('Stockpile Controller', () => {
         const controller3 = new StockpileController({
             person,
             stockpiles,
-            stockpileTiles
+            stockpileTiles,
         });
         controller3.constructStockpile({
             location: {
                 x: 0,
-                y: 0
-            }
+                y: 0,
+            },
         });
     });
     it('should fail to construct by building between two buildings', () => {

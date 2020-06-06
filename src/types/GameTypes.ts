@@ -1,6 +1,6 @@
 import * as seedrandom from 'seedrandom';
 import { TDayNightTime } from './time';
-import {prng} from "seedrandom";
+import { prng } from 'seedrandom';
 
 /**
  * The base interface for all game objects.
@@ -928,6 +928,23 @@ export interface IApiPersonsObjectDropPost {
 export interface IApiPersonsObjectCraftPost {
     personId: string;
     recipeProduct: ENetworkObjectType;
+}
+
+/**
+ * The HTTP /persons/stockpile/withdraw post request.
+ */
+export interface IApiPersonsStockpileWithdrawPost {
+    personId: string;
+    objectId: string;
+    amount: number;
+}
+
+/**
+ * The HTTP /persons/stockpile/deposit post request.
+ */
+export interface IApiPersonsStockpileDepositPost {
+    personId: string;
+    objectId: string;
 }
 
 /**

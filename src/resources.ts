@@ -1,9 +1,4 @@
-import {
-    IApiPersonsResourceHarvestPost,
-    INetworkObject,
-    IResource,
-    IResourceSpawn
-} from './types/GameTypes';
+import { IApiPersonsResourceHarvestPost, INetworkObject, IResource, IResourceSpawn } from './types/GameTypes';
 import * as seedrandom from 'seedrandom';
 
 /**

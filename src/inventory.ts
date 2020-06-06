@@ -3,8 +3,11 @@ import {
     IApiPersonsObjectCraftPost,
     IApiPersonsObjectDropPost,
     IApiPersonsObjectPickUpPost,
+    IApiPersonsStockpileDepositPost,
+    IApiPersonsStockpileWithdrawPost,
     ICraftingRecipe,
-    ICraftingRecipeItem, INetworkObject,
+    ICraftingRecipeItem,
+    INetworkObject,
     INpc,
     IPerson,
     IPersonsInventory,
@@ -271,30 +274,28 @@ export class InventoryController {
      */
     withdrawFromStockpile(itemToWithdraw: INetworkObject, amount: number): IInventoryTransaction {
         // find inventory copy of item
-        const internalItemToWithdraw = this.slots.find(slot => slot.id === itemToWithdraw.id);
+        const internalItemToWithdraw = this.slots.find((slot) => slot.id === itemToWithdraw.id);
         if (!internalItemToWithdraw) {
-            throw new Error("Cannot find item to withdraw within inventory slots");
+            throw new Error('Cannot find item to withdraw within inventory slots');
         }
 
         // compute max withdraw amount
         const withdrawAmount = Math.min(amount, getMaxStackSize(itemToWithdraw.objectType), itemToWithdraw.amount);
 
         if (internalItemToWithdraw.amount - withdrawAmount <= 0) {
-            this.slots = this.slots.filter(slot => slot.id !== internalItemToWithdraw.id);
+            this.slots = this.slots.filter((slot) => slot.id !== internalItemToWithdraw.id);
             return {
-                deletedSlots: [
-                    internalItemToWithdraw.id,
-                ],
+                deletedSlots: [internalItemToWithdraw.id],
                 modifiedSlots: [],
                 updatedItem: this.createItemType(internalItemToWithdraw.objectType, withdrawAmount),
-                stackableSlots: []
+                stackableSlots: [],
             };
         } else {
-            this.slots = this.slots.map(slot => {
+            this.slots = this.slots.map((slot) => {
                 if (slot.id === internalItemToWithdraw.id) {
                     return {
                         ...slot,
-                        amount: slot.amount - withdrawAmount
+                        amount: slot.amount - withdrawAmount,
                     };
                 } else {
                     return slot;
@@ -302,12 +303,14 @@ export class InventoryController {
             });
             return {
                 deletedSlots: [],
-                modifiedSlots: [{
-                    ...internalItemToWithdraw,
-                    amount: internalItemToWithdraw.amount - withdrawAmount
-                }],
+                modifiedSlots: [
+                    {
+                        ...internalItemToWithdraw,
+                        amount: internalItemToWithdraw.amount - withdrawAmount,
+                    },
+                ],
                 updatedItem: this.createItemType(internalItemToWithdraw.objectType, withdrawAmount),
-                stackableSlots: []
+                stackableSlots: [],
             };
         }
     }
@@ -318,6 +321,36 @@ export class InventoryController {
      * @param networkObject The item to pick up.
      */
     pickUpItemRequest(person: IPerson, networkObject: INetworkObject): IApiPersonsObjectPickUpPost {
+        return {
+            personId: person.id,
+            objectId: networkObject.id,
+        };
+    }
+
+    /**
+     * Return the post request used to create a withdraw item from stockpile request.
+     * @param person The person withdrawing an item.
+     * @param networkObject The item to withdraw.
+     * @param amount The amount to withdraw from the object.
+     */
+    withdrawItemFromStockpileRequest(
+        person: IPerson,
+        networkObject: INetworkObject,
+        amount: number,
+    ): IApiPersonsStockpileWithdrawPost {
+        return {
+            personId: person.id,
+            objectId: networkObject.id,
+            amount,
+        };
+    }
+
+    /**
+     * Return the post request used to create a deposit item into stockpile request.
+     * @param person The person depositing an item.
+     * @param networkObject The item to deposit.
+     */
+    depositItemIntoStockpileRequest(person: IPerson, networkObject: INetworkObject): IApiPersonsStockpileDepositPost {
         return {
             personId: person.id,
             objectId: networkObject.id,

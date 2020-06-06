@@ -1,6 +1,6 @@
 import 'jest';
 import { getMaxStackSize, InventoryController, listOfRecipes } from './inventory';
-import {ENetworkObjectType, ICraftingRecipe, INetworkObject, IPerson} from './types/GameTypes';
+import { ENetworkObjectType, ICraftingRecipe, INetworkObject, IPerson } from './types/GameTypes';
 
 describe('InventoryController', () => {
     const person: IPerson = {
@@ -252,6 +252,24 @@ describe('InventoryController', () => {
         const controller = new InventoryController(person);
         const item = generateStick(0, 0);
         expect(controller.pickUpItemRequest(person, item)).toEqual({
+            personId: person.id,
+            objectId: item.id,
+        });
+    });
+    it('should generate a withdraw item from stockpile request', () => {
+        const controller = new InventoryController(person);
+        const item = generateStick(0, 0);
+        const amount = 1;
+        expect(controller.withdrawItemFromStockpileRequest(person, item, amount)).toEqual({
+            personId: person.id,
+            objectId: item.id,
+            amount,
+        });
+    });
+    it('should generate a deposit item into stockpile request', () => {
+        const controller = new InventoryController(person);
+        const item = generateStick(0, 0);
+        expect(controller.depositItemIntoStockpileRequest(person, item)).toEqual({
             personId: person.id,
             objectId: item.id,
         });
