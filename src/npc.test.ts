@@ -2,10 +2,12 @@ import 'jest';
 import { applyPathToNpc, applyStateToNetworkObject, CellController } from './npc';
 import {
     ENetworkObjectType,
+    ENpcJobType,
     EOwnerType,
     IHouse,
     INetworkObject,
     INpc,
+    INpcJobCrafting,
     INpcPathPoint,
     IObject,
     IResource,
@@ -40,6 +42,15 @@ const createNpc = (index: number): INpc => ({
         slots: [],
     },
     inventoryState: [],
+    job:
+        index % 3 === 2
+            ? ({
+                  type: ENpcJobType.CRAFT,
+                  products: [ENetworkObjectType.WATTLE_WALL],
+              } as INpcJobCrafting)
+            : {
+                  type: ENpcJobType.GATHER,
+              },
 });
 
 describe('CellController', () => {
@@ -183,7 +194,8 @@ describe('CellController', () => {
     it('should run for 2 minutes in 2 steps', () => runSimulationForAmountOfTime(2 * 60 * 1000, 2));
     it('should run for 10 minutes', () => runSimulationForAmountOfTime(10 * 60 * 1000));
     it('should run for 1 hour', () => runSimulationForAmountOfTime(60 * 60 * 1000));
-    it('should run for 5 hours', () => runSimulationForAmountOfTime(5 * 60 * 60 * 1000));
+    it('should run for 4 hours', () => runSimulationForAmountOfTime(4 * 60 * 60 * 1000));
+    it('should run for 8 hours', () => runSimulationForAmountOfTime(8 * 60 * 60 * 1000));
 });
 
 describe('applyPathToNpc', () => {

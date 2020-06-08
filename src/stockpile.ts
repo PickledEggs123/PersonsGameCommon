@@ -85,8 +85,8 @@ export class StockpileController {
             },
             lastUpdate: new Date().toISOString(),
             inventory: {
-                rows: 40,
-                columns: 10,
+                rows: StockpileController.NUMBER_OF_ROWS_PER_STOCKPILE_TILE,
+                columns: StockpileController.NUMBER_OF_COLUMNS_PER_STOCKPILE_TILE,
                 slots: [],
             },
             craftingSeed: stockpileId,

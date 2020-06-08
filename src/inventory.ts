@@ -7,6 +7,7 @@ import {
     IApiPersonsStockpileWithdrawPost,
     ICraftingRecipe,
     ICraftingRecipeItem,
+    IInventoryHolder,
     INetworkObject,
     INpc,
     IPerson,
@@ -128,7 +129,7 @@ export class InventoryController {
     /**
      * The person or npc holding the inventory.
      */
-    private inventoryHolder: IPerson | INpc | IStockpile;
+    private inventoryHolder: IInventoryHolder;
     /**
      * The random number generator used to generate predictable random crafted item ids.
      */
@@ -140,7 +141,7 @@ export class InventoryController {
      * of the inventory after a specific set of operations.
      * @param inventoryHolder The inventory holding person or npc.
      */
-    constructor(inventoryHolder: IPerson | INpc | IStockpile) {
+    constructor(inventoryHolder: IInventoryHolder) {
         // handle inventory slots
         const inventory = inventoryHolder.inventory;
         this.numRows = inventory.rows;
@@ -425,7 +426,7 @@ export class InventoryController {
     /**
      * Return the total state change to the inventory holder. This combines the new inventory and crafting state.
      */
-    getState(): Partial<IPerson | INpc> {
+    getState(): Partial<IInventoryHolder> {
         return {
             inventory: this.getInventory(),
             craftingState: this.getCraftingState(),

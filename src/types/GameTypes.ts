@@ -170,9 +170,27 @@ export interface IPersonsInventory {
 }
 
 /**
+ * An object or person which contains an inventory.
+ */
+export interface IInventoryHolder extends INetworkObjectBase {
+    /**
+     * The inventory for the person.
+     */
+    inventory: IPersonsInventory;
+    /**
+     * Crafting Seed for crafted item ids.
+     */
+    craftingSeed: string;
+    /**
+     * The state of the crafting item id rng.
+     */
+    craftingState: seedrandom.State | true;
+}
+
+/**
  * The base interface for all people in the game.
  */
-export interface IPerson extends INetworkObjectBase {
+export interface IPerson extends INetworkObjectBase, IInventoryHolder {
     /**
      * The customizable shirt color of the person.
      */
@@ -197,18 +215,6 @@ export interface IPerson extends INetworkObjectBase {
      * The person is a person type.
      */
     objectType: ENetworkObjectType.PERSON;
-    /**
-     * The inventory for the person.
-     */
-    inventory: IPersonsInventory;
-    /**
-     * Crafting Seed for crafted item ids.
-     */
-    craftingSeed: string;
-    /**
-     * The state of the crafting item id rng.
-     */
-    craftingState: seedrandom.State | true;
 }
 
 /**
@@ -348,7 +354,7 @@ export interface IHouse extends INetworkObjectBase, IOwner {
 /**
  * A building or land area which can store items.
  */
-export interface IStockpile extends INetworkObjectBase, IOwner {
+export interface IStockpile extends INetworkObjectBase, IOwner, IInventoryHolder {
     /**
      * The inventory of the stockpile.
      */
@@ -358,15 +364,7 @@ export interface IStockpile extends INetworkObjectBase, IOwner {
      */
     objectType: ENetworkObjectType.STOCKPILE;
     /**
-     * A seed used to generate random crafting ids.
-     */
-    craftingSeed: string;
-    /**
-     * The state of the random number generator used to generate new item ids.
-     */
-    craftingState: true | seedrandom.State;
-    /**
-     * Represent the change to npc inventory over time.
+     * The state changes of the inventory over time.
      */
     inventoryState: IInventoryState[];
 }
@@ -931,6 +929,16 @@ export interface IApiPersonsObjectCraftPost {
 }
 
 /**
+ * The HTTP /persons/npc/job post request.
+ * Used to set the npc's job.
+ */
+export interface IApiPersonsNpcJobPost {
+    personId: string;
+    npcId: string;
+    job: INpcJob;
+}
+
+/**
  * The HTTP /persons/stockpile/withdraw post request.
  */
 export interface IApiPersonsStockpileWithdrawPost {
@@ -1145,6 +1153,54 @@ export interface IInventoryState {
 }
 
 /**
+ * The different type of jobs an NPC can have.
+ */
+export enum ENpcJobType {
+    /**
+     * The NPC will gather all resources within the environment. The default job for an npc. The gatherer will not use tools.
+     */
+    GATHER = 'GATHER',
+    /**
+     * The NPC will craft simple items such as wattles, baskets, and bricks using materials within a stockpile.
+     */
+    CRAFT = 'CRAFT',
+    /**
+     * The hauler will move items between stockpiles. Haulers can travel for long distances (15 tiles or 5 minutes) between
+     * stockpiles. The hauler will move rare resources from special biomes to the current person.
+     */
+    HAUL = 'HAUL',
+}
+
+/**
+ * The base interface for all NPC jobs.
+ */
+export interface INpcJob {
+    type: ENpcJobType;
+}
+
+/**
+ * The gathering job of an npc.
+ */
+export interface INpcJobGathering {
+    type: ENpcJobType.GATHER;
+    /**
+     * The type of resources to gather from.
+     */
+    resources: ENetworkObjectType[];
+}
+
+/**
+ * The crafting job of an npc.
+ */
+export interface INpcJobCrafting {
+    type: ENpcJobType.CRAFT;
+    /**
+     * A list of products to craft.
+     */
+    products: ENetworkObjectType[];
+}
+
+/**
  * A non playable character that moves along preplanned routes.
  */
 export interface INpc extends IPerson {
@@ -1164,4 +1220,8 @@ export interface INpc extends IPerson {
      * Represent the change to npc inventory over time.
      */
     inventoryState: IInventoryState[];
+    /**
+     * The job assigned to the npc.
+     */
+    job: INpcJob;
 }

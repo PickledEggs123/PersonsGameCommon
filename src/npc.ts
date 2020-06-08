@@ -1,16 +1,20 @@
 import {
+    ENpcJobType,
+    ICraftingRecipe,
     IHouse,
+    IInventoryHolder,
     IInventoryState,
     INetworkObject,
     INetworkObjectBase,
     INetworkObjectState,
     INpc,
+    INpcJobCrafting,
     INpcPathPoint,
     IResource,
     IStockpile,
 } from './types/GameTypes';
 import { HarvestResourceController } from './resources';
-import { InventoryController } from './inventory';
+import { getMaxStackSize, InventoryController, listOfRecipes } from './inventory';
 
 /**
  * The input of the [[CellController]] which controls all npcs within a cell, collaboratively.
@@ -245,6 +249,51 @@ const internalApplyPathToNpc = (npc: INpc): INpc => {
 };
 
 /**
+ * Apply a single inventory state
+ * @param all If all inventory states should be applied.
+ * @param now The current now time to apply inventory state with.
+ * @param acc The accumulated inventory holder.
+ * @param inventoryState The inventory state event to apply.
+ */
+const internalApplyOneInventoryState = <T extends INpc | IStockpile>(
+    all: boolean,
+    now: Date,
+    acc: T,
+    inventoryState: IInventoryState,
+): T => {
+    if (all || +now >= Date.parse(inventoryState.time)) {
+        return {
+            ...acc,
+            inventory: {
+                ...acc.inventory,
+                rows: typeof inventoryState.rows === 'number' ? inventoryState.rows : acc.inventory.rows,
+                columns: typeof inventoryState.columns === 'number' ? inventoryState.columns : acc.inventory.columns,
+                slots: [
+                    ...acc.inventory.slots
+                        .filter((slot) => {
+                            return (
+                                !inventoryState.remove.includes(slot.id) &&
+                                !inventoryState.add.some((s) => s.id === slot.id)
+                            );
+                        })
+                        .map((slot) => {
+                            const matchingModify = inventoryState.modified.find((o) => o.id === slot.id);
+                            if (matchingModify) {
+                                return matchingModify;
+                            } else {
+                                return slot;
+                            }
+                        }),
+                    ...inventoryState.add,
+                ],
+            },
+        };
+    } else {
+        return acc;
+    }
+};
+
+/**
  * Apply inventory state updates over time. The npc will store a list of inventory changes as it will pick
  * items up over time. Each NPC tick (npc logic) is 1 minute long. Each web page refresh is 2 seconds long. A
  * list of inventory states is required to smoothly interpolate npc data in between the large npc logic tick
@@ -255,37 +304,7 @@ const internalApplyPathToNpc = (npc: INpc): INpc => {
 const internalApplyInventoryState = <T extends INpc | IStockpile>(npc: T, all: boolean): T => {
     const now = new Date();
     return npc.inventoryState.reduce((acc: T, inventoryState: IInventoryState): T => {
-        if (all || +now >= Date.parse(inventoryState.time)) {
-            return {
-                ...acc,
-                inventory: {
-                    ...acc.inventory,
-                    rows: typeof inventoryState.rows === 'number' ? inventoryState.rows : acc.inventory.rows,
-                    columns:
-                        typeof inventoryState.columns === 'number' ? inventoryState.columns : acc.inventory.columns,
-                    slots: [
-                        ...acc.inventory.slots
-                            .filter((slot) => {
-                                return (
-                                    !inventoryState.remove.includes(slot.id) &&
-                                    !inventoryState.add.some((s) => s.id === slot.id)
-                                );
-                            })
-                            .map((slot) => {
-                                const matchingModify = inventoryState.modified.find((o) => o.id === slot.id);
-                                if (matchingModify) {
-                                    return matchingModify;
-                                } else {
-                                    return slot;
-                                }
-                            }),
-                        ...inventoryState.add,
-                    ],
-                },
-            };
-        } else {
-            return acc;
-        }
+        return internalApplyOneInventoryState(all, now, acc, inventoryState);
     }, npc);
 };
 
@@ -302,6 +321,12 @@ export const applyInventoryState = <T extends INpc | IStockpile>(npc: T): T => {
 
 export const applyFutureInventoryState = <T extends INpc | IStockpile>(npc: T): T => {
     return internalApplyInventoryState(npc, true);
+};
+
+export const applyOneInventoryState = <T extends INpc | IStockpile>(npc: T, inventoryState: IInventoryState): T => {
+    const now = new Date();
+    const all = true;
+    return internalApplyOneInventoryState(all, now, npc, inventoryState);
 };
 
 /**
@@ -440,9 +465,31 @@ export class CellController {
         this.state.npcs = this.state.npcs.sort(CellController.newestSimulationEvent);
     }
 
-    private static hasInventorySpace(npc: INpc | IStockpile) {
-        const maxSlots: number = npc.inventory.rows * npc.inventory.columns;
-        return npc.inventory.slots.length < maxSlots;
+    private static hasInventorySpace(inventoryHolder: IInventoryHolder) {
+        const maxSlots: number = inventoryHolder.inventory.rows * inventoryHolder.inventory.columns;
+        return inventoryHolder.inventory.slots.length < maxSlots;
+    }
+
+    private static hasRecipeItems(recipe: ICraftingRecipe, amount: number, inventoryHolder: IInventoryHolder) {
+        // check for each recipe item
+        return recipe.items
+            .map((item) => {
+                // count the number of items in inventory which match the recipe item
+                const numItems = inventoryHolder.inventory.slots.reduce((acc: number, slot): number => {
+                    if (slot.objectType === item.item) {
+                        return acc + slot.amount;
+                    } else {
+                        return acc;
+                    }
+                }, 0);
+                // the number of inventory items is greater than requested recipe item amount
+                return numItems > item.quantity * amount;
+            })
+            .every((item) => item);
+    }
+
+    private static hasItemInInventory(npc: IInventoryHolder) {
+        return npc.inventory.slots.length > 0;
     }
 
     private isNpcReady(npc: INpc) {
@@ -738,7 +785,7 @@ export class CellController {
             };
             npcEvent = {
                 ...npcEvent,
-                data: applyFutureInventoryState(npcEvent.data),
+                data: applyOneInventoryState(npcEvent.data, npcInventoryEvent.state),
             };
             this.state.npcs[firstEventIndex] = npcEvent;
         }
@@ -764,33 +811,21 @@ export class CellController {
             }
             const npcEvent: ISimulationEvent<INpc> = this.state.npcs[firstEventIndex];
 
-            // check to see if npc has inventory space
-            if (CellController.hasInventorySpace(npcEvent.data)) {
-                // fetch resource
-                this.collectResources({
+            if (npcEvent.data.job.type === ENpcJobType.GATHER) {
+                this.handleGatherJob({
+                    npcEvent,
+                    firstEventIndex,
+                });
+            } else if (npcEvent.data.job.type === ENpcJobType.CRAFT) {
+                this.handleCraftJob({
                     npcEvent,
                     firstEventIndex,
                 });
             } else {
-                // check for empty stockpiles
-                const stockpileIndex = this.state.stockpiles
-                    .sort(CellController.byDistance.bind(this, npcEvent.data))
-                    .findIndex(CellController.hasInventorySpace.bind(this));
-                const stockpile = this.state.stockpiles[stockpileIndex];
-                if (stockpile) {
-                    // store in stockpile
-                    this.storeInStockpile({
-                        npcEvent,
-                        firstEventIndex,
-                        stockpile,
-                        stockpileIndex,
-                    });
-                } else {
-                    this.npcGoHome({
-                        npcEvent,
-                        firstEventIndex,
-                    });
-                }
+                this.npcGoHome({
+                    npcEvent,
+                    firstEventIndex,
+                });
             }
         }
     }
@@ -842,7 +877,7 @@ export class CellController {
                 const inventoryState: IInventoryState[] = [
                     ...initialStockpile.inventoryState.filter((event) => Date.parse(event.time) > +now),
                     ...relevantInventoryEvents.map((event) => event.state),
-                ];
+                ].sort((a, b) => +a.time - +b.time);
                 return {
                     ...initialStockpile,
                     inventoryState,
@@ -930,7 +965,9 @@ export class CellController {
         firstEventIndex: number;
         stockpile: IStockpile;
         stockpileIndex: number;
-    }) {
+    }): {
+        npcEvent: ISimulationEvent<INpc>;
+    } {
         const { npcReadyTime, npcEvent: npcEventWithPath } = this.walkNpcTowardsLocation({
             npcEvent,
             firstEventIndex,
@@ -986,7 +1023,7 @@ export class CellController {
                 };
                 npcEvent = {
                     ...npcEvent,
-                    data: applyFutureInventoryState(npcEvent.data),
+                    data: applyOneInventoryState(npcEvent.data, npcDropItemEvent.state),
                 };
                 this.state.npcs[firstEventIndex] = npcEvent;
 
@@ -1003,24 +1040,225 @@ export class CellController {
                     },
                 };
                 this.state.stockpileInventoryEvents.push(stockpileEvent);
-                this.state.stockpiles[stockpileIndex] = applyFutureInventoryState({
-                    ...stockpile,
-                    inventoryState: [...stockpile.inventoryState, stockpileEvent.state],
-                });
-                const moveToStockpileEvent: INetworkObjectEvent = {
-                    objectId: npcItem.id,
-                    time: npcReadyTime,
-                    state: {
-                        time: npcReadyTime.toISOString(),
-                        state: {
-                            isInInventory: true,
-                            insideStockpile: stockpile.id,
-                        },
+                this.state.stockpiles[stockpileIndex] = applyOneInventoryState(
+                    {
+                        ...stockpile,
+                        inventoryState: [...stockpile.inventoryState, stockpileEvent.state],
                     },
-                };
-                this.state.networkObjectEvents.push(moveToStockpileEvent);
+                    stockpileEvent.state,
+                );
+                if (updatedItem) {
+                    const moveToStockpileEvent: INetworkObjectEvent = {
+                        objectId: updatedItem.id,
+                        time: npcReadyTime,
+                        state: {
+                            time: npcReadyTime.toISOString(),
+                            state: {
+                                isInInventory: true,
+                                insideStockpile: stockpile.id,
+                            },
+                        },
+                    };
+                    this.state.networkObjectEvents.push(moveToStockpileEvent);
+                } else {
+                    const destroyOriginalItem: INetworkObjectEvent = {
+                        objectId: npcItem.id,
+                        time: npcReadyTime,
+                        state: {
+                            time: npcReadyTime.toISOString(),
+                            state: {
+                                exist: false,
+                            },
+                        },
+                    };
+                    this.state.networkObjectEvents.push(destroyOriginalItem);
+
+                    for (const slot of stackableSlots) {
+                        const modifyStackedItem: INetworkObjectEvent = {
+                            objectId: slot.id,
+                            time: npcReadyTime,
+                            state: {
+                                time: npcReadyTime.toISOString(),
+                                state: {
+                                    amount: slot.amount,
+                                },
+                            },
+                        };
+                        this.state.networkObjectEvents.push(modifyStackedItem);
+                    }
+                }
             }
         }
+        return {
+            npcEvent,
+        };
+    }
+
+    /**
+     * NPC should withdraw resources from stockpile. The first part of crafting is getting the resources to craft with.
+     * @param npcEvent The NPC which will withdraw the resources.
+     * @param firstEventIndex The index of the npc, used to modify npc itself in the array.
+     * @param stockpile The stockpile to withdraw from
+     * @param stockpileIndex The stockpile index to update in the stockpiles array
+     * @param recipe The recipe to withdraw, containing a list of all items to withdraw.
+     * @param amountRecipes The amount of the recipe to withdraw, ie. withdrawing 5 copies of the recipe.
+     */
+    private withdrawFromStockpile({
+        npcEvent,
+        firstEventIndex,
+        stockpile,
+        stockpileIndex,
+        recipe,
+        amountRecipes,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+        stockpile: IStockpile;
+        stockpileIndex: number;
+        recipe: ICraftingRecipe;
+        amountRecipes: number;
+    }): {
+        npcEvent: ISimulationEvent<INpc>;
+    } {
+        // walk towards stockpile
+        const { npcReadyTime, npcEvent: npcEventWithPath } = this.walkNpcTowardsLocation({
+            npcEvent,
+            firstEventIndex,
+            location: stockpile,
+        });
+        npcEvent = npcEventWithPath;
+
+        // for each recipe item, withdraw resource for part of the recipe
+        for (const recipeItem of recipe.items) {
+            stockpile = this.state.stockpiles[stockpileIndex];
+            const npcInventoryController = new InventoryController(npcEvent.data);
+            const stockpileInventoryController = new InventoryController(stockpile);
+
+            // determine the withdraw amounts to withdraw all resources, will take multiple withdraws for the same item
+            // there is a withdraw limit which is max stack size
+            const withdrawAmounts: number[] = [];
+            {
+                let withdrawAmountLeft: number = recipeItem.quantity * amountRecipes;
+                while (withdrawAmountLeft > 0) {
+                    const withdrawAmount = Math.min(withdrawAmountLeft, getMaxStackSize(recipeItem.item));
+                    withdrawAmountLeft -= withdrawAmount;
+                    withdrawAmounts.push(withdrawAmount);
+                }
+            }
+
+            // for each withdraw amount
+            for (const withdrawAmount of withdrawAmounts) {
+                // determine relevant slots to withdraw from
+                const slotAmountPairs = stockpile.inventory.slots.reduce(
+                    (acc: { amount: number; slot: INetworkObject }[], slot: INetworkObject) => {
+                        if (slot.objectType === recipeItem.item) {
+                            const amountLeft =
+                                withdrawAmount -
+                                acc.reduce((acc1: number, accItem): number => {
+                                    return acc1 + accItem.amount;
+                                }, 0);
+                            const amountToWithdrawForSlot = Math.min(slot.amount, amountLeft);
+                            if (amountToWithdrawForSlot > 0) {
+                                return [
+                                    ...acc,
+                                    {
+                                        amount: amountToWithdrawForSlot,
+                                        slot,
+                                    },
+                                ];
+                            }
+                        }
+                        return acc;
+                    },
+                    [],
+                );
+
+                // for each pair of slot and amount
+                for (const slotAmountPair of slotAmountPairs) {
+                    const amountToWithdraw = slotAmountPair.amount;
+                    const slotToWithdraw = slotAmountPair.slot;
+
+                    // withdraw item
+                    const { updatedItem: withdrawnItem } = stockpileInventoryController.withdrawFromStockpile(
+                        slotToWithdraw,
+                        amountToWithdraw,
+                    );
+                    if (withdrawnItem) {
+                        const stockpileEvent: IStockpileInventoryEvent = {
+                            stockpileId: stockpile.id,
+                            time: npcReadyTime,
+                            state: {
+                                time: npcReadyTime.toISOString(),
+                                add: [],
+                                modified: [],
+                                remove: [withdrawnItem.id],
+                            },
+                        };
+                        this.state.stockpileInventoryEvents.push(stockpileEvent);
+                        this.state.stockpiles[stockpileIndex] = applyOneInventoryState(
+                            {
+                                ...stockpile,
+                                inventoryState: [...stockpile.inventoryState, stockpileEvent.state],
+                            },
+                            stockpileEvent.state,
+                        );
+                        const withdrawnFromStockpileEvent: INetworkObjectEvent = {
+                            objectId: withdrawnItem.id,
+                            time: npcReadyTime,
+                            state: {
+                                time: npcReadyTime.toISOString(),
+                                state: {
+                                    isInInventory: false,
+                                    insideStockpile: null,
+                                },
+                            },
+                        };
+                        this.state.networkObjectEvents.push(withdrawnFromStockpileEvent);
+
+                        // pickup item
+                        const { updatedItem, stackableSlots } = npcInventoryController.pickUpItem(withdrawnItem);
+                        const pickUpItemEvent: INetworkObjectEvent = {
+                            objectId: withdrawnItem.id,
+                            time: npcReadyTime,
+                            state: {
+                                time: npcReadyTime.toISOString(),
+                                state: {
+                                    grabbedByNpcId: npcEvent.data.id,
+                                    isInInventory: true,
+                                },
+                            },
+                        };
+                        this.state.networkObjectEvents.push(pickUpItemEvent);
+                        const npcPickUpItemEvent: INpcInventoryEvent = {
+                            npcId: npcEvent.data.id,
+                            time: npcReadyTime,
+                            state: {
+                                time: npcReadyTime.toISOString(),
+                                add: updatedItem ? [updatedItem] : [],
+                                modified: stackableSlots,
+                                remove: [],
+                            },
+                        };
+                        this.state.npcInventoryEvents.push(npcPickUpItemEvent);
+                        npcEvent = {
+                            ...npcEvent,
+                            data: {
+                                ...npcEvent.data,
+                                inventoryState: [...npcEvent.data.inventoryState, npcPickUpItemEvent.state],
+                            },
+                        };
+                        npcEvent = {
+                            ...npcEvent,
+                            data: applyOneInventoryState(npcEvent.data, npcPickUpItemEvent.state),
+                        };
+                        this.state.npcs[firstEventIndex] = npcEvent;
+                    }
+                }
+            }
+        }
+        return {
+            npcEvent,
+        };
     }
 
     /**
@@ -1028,15 +1266,297 @@ export class CellController {
      * @param npcEvent The npc data.
      * @param firstEventIndex The index of the npc data, used to modify array.
      */
-    private npcGoHome({ npcEvent, firstEventIndex }: { npcEvent: ISimulationEvent<INpc>; firstEventIndex: number }) {
+    private npcGoHome({
+        npcEvent,
+        firstEventIndex,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+    }): {
+        duration: number;
+        npcReadyTime: Date;
+        npcEvent: ISimulationEvent<INpc>;
+    } {
         const home = this.houses.find((house) => house.npcId === npcEvent.data.id);
         if (!home) {
             throw new Error('Could not find a house for the NPC to go home to');
         }
-        this.walkNpcTowardsLocation({
+        return this.walkNpcTowardsLocation({
             npcEvent,
             firstEventIndex,
             location: home,
         });
+    }
+
+    private findAndStoreInStockpile({
+        npcEvent,
+        firstEventIndex,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+    }): {
+        foundStockpile: boolean;
+        npcEvent: ISimulationEvent<INpc>;
+    } {
+        // check for empty stockpiles
+        const stockpileIndex = this.state.stockpiles
+            .sort(CellController.byDistance.bind(this, npcEvent.data))
+            .findIndex(CellController.hasInventorySpace.bind(this));
+        const stockpile = this.state.stockpiles[stockpileIndex];
+        if (stockpile) {
+            // store in stockpile
+            const result = this.storeInStockpile({
+                npcEvent,
+                firstEventIndex,
+                stockpile,
+                stockpileIndex,
+            });
+            return {
+                foundStockpile: true,
+                npcEvent: result.npcEvent,
+            };
+        } else {
+            return {
+                foundStockpile: false,
+                npcEvent,
+            };
+        }
+    }
+
+    private findAndWithdrawFromStockpile({
+        npcEvent,
+        firstEventIndex,
+        recipe,
+        amountRecipes,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+        recipe: ICraftingRecipe;
+        amountRecipes: number;
+    }): {
+        foundStockpile: boolean;
+        npcEvent: ISimulationEvent<INpc>;
+    } {
+        // check for empty stockpiles
+        const stockpileIndex = this.state.stockpiles
+            .sort(CellController.byDistance.bind(this, npcEvent.data))
+            .findIndex(CellController.hasRecipeItems.bind(this, recipe, amountRecipes));
+        const stockpile = this.state.stockpiles[stockpileIndex];
+        if (stockpile) {
+            // store in stockpile
+            const result = this.withdrawFromStockpile({
+                npcEvent,
+                firstEventIndex,
+                stockpile,
+                stockpileIndex,
+                recipe,
+                amountRecipes,
+            });
+            return {
+                foundStockpile: true,
+                npcEvent: result.npcEvent,
+            };
+        } else {
+            return {
+                foundStockpile: false,
+                npcEvent,
+            };
+        }
+    }
+
+    private handleGatherJob({
+        npcEvent,
+        firstEventIndex,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+    }) {
+        // check to see if npc has inventory space
+        if (CellController.hasInventorySpace(npcEvent.data)) {
+            // fetch resource
+            this.collectResources({
+                npcEvent,
+                firstEventIndex,
+            });
+        } else {
+            const result = this.findAndStoreInStockpile({
+                npcEvent,
+                firstEventIndex,
+            });
+            if (!result.foundStockpile) {
+                this.npcGoHome({
+                    npcEvent,
+                    firstEventIndex,
+                });
+            }
+        }
+    }
+
+    private handleCraftJob({
+        npcEvent,
+        firstEventIndex,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+    }) {
+        // remove all items if there are items inside of the inventory
+        // must clear inventory before the npc will start crafting
+        if (CellController.hasItemInInventory(npcEvent.data)) {
+            const result = this.findAndStoreInStockpile({
+                npcEvent,
+                firstEventIndex,
+            });
+            npcEvent = result.npcEvent;
+            if (!result.foundStockpile) {
+                this.npcGoHome({
+                    npcEvent,
+                    firstEventIndex,
+                });
+                return;
+            }
+        }
+
+        // determine crafting recipe
+        const craftingJob: INpcJobCrafting = npcEvent.data.job as INpcJobCrafting;
+        const products = craftingJob.products;
+
+        // pick a crafting product
+        const product = products[Math.floor(Math.random() * products.length)];
+        if (product) {
+            // determine recipe to craft
+            const recipe = listOfRecipes.find((r) => r.product === product);
+            if (recipe) {
+                // determine crafting amount
+                const numInputSlotsPerRecipe = recipe.items.reduce((acc: number, item): number => {
+                    const numSlotsForItem = Math.floor(item.quantity / getMaxStackSize(item.item));
+                    return acc + numSlotsForItem;
+                }, 0);
+                const numOutputSlotsPerRecipe = Math.floor(recipe.amount / getMaxStackSize(recipe.product));
+                const slotsPerRecipe = Math.max(numInputSlotsPerRecipe, numOutputSlotsPerRecipe);
+                const maxSlots = npcEvent.data.inventory.rows * npcEvent.data.inventory.columns;
+                const numRecipes = Math.floor(maxSlots / slotsPerRecipe);
+
+                // withdraw crafting recipe materials
+                {
+                    const result = this.findAndWithdrawFromStockpile({
+                        npcEvent,
+                        firstEventIndex,
+                        recipe,
+                        amountRecipes: numRecipes,
+                    });
+                    npcEvent = result.npcEvent;
+                    if (!result.foundStockpile) {
+                        this.npcGoHome({
+                            npcEvent,
+                            firstEventIndex,
+                        });
+                        return;
+                    }
+                }
+
+                this.craftRecipes({
+                    npcEvent,
+                    firstEventIndex,
+                    recipe,
+                    amountRecipes: numRecipes,
+                });
+            }
+        }
+    }
+
+    private craftRecipes({
+        npcEvent,
+        firstEventIndex,
+        recipe,
+        amountRecipes,
+    }: {
+        npcEvent: ISimulationEvent<INpc>;
+        firstEventIndex: number;
+        recipe: any;
+        amountRecipes: number;
+    }) {
+        const goHomeResult = this.npcGoHome({
+            npcEvent,
+            firstEventIndex,
+        });
+        npcEvent = goHomeResult.npcEvent;
+        const npcReadyTime = goHomeResult.npcReadyTime;
+
+        for (let i = 0; i < amountRecipes; i++) {
+            const npcController = new InventoryController(npcEvent.data);
+
+            // perform the crafting operation
+            const { updatedItem, stackableSlots, modifiedSlots, deletedSlots } = npcController.craftItem(recipe);
+
+            // a new object was created inside of the npc inventory
+            if (updatedItem) {
+                const spawnEvent: ISpawnEvent = {
+                    time: npcReadyTime,
+                    spawn: updatedItem,
+                };
+                this.state.spawns.push(spawnEvent);
+            }
+
+            // for each slot that was stacked (added) or modified (subtracted), an inventory object was modified, create modified event
+            for (const slot of [...stackableSlots, ...modifiedSlots]) {
+                const objectEvent: INetworkObjectEvent = {
+                    time: npcReadyTime,
+                    objectId: slot.id,
+                    state: {
+                        time: npcReadyTime.toISOString(),
+                        state: {
+                            amount: slot.amount,
+                        },
+                    },
+                };
+                this.state.networkObjectEvents.push(objectEvent);
+            }
+
+            // for each slot that was deleted, create deletion event
+            for (const slotId of deletedSlots) {
+                const objectElement: INetworkObjectEvent = {
+                    time: npcReadyTime,
+                    objectId: slotId,
+                    state: {
+                        time: npcReadyTime.toISOString(),
+                        state: {
+                            exist: false,
+                        },
+                    },
+                };
+                this.state.networkObjectEvents.push(objectElement);
+            }
+
+            // update npc inventory in one go
+            const inventoryState: IInventoryState = {
+                time: npcReadyTime.toISOString(),
+                add: updatedItem ? [updatedItem] : [],
+                modified: [...stackableSlots, ...modifiedSlots],
+                remove: deletedSlots,
+            };
+            const npcInventoryEvent: INpcInventoryEvent = {
+                time: npcReadyTime,
+                npcId: npcEvent.data.id,
+                state: inventoryState,
+            };
+            this.state.npcInventoryEvents.push(npcInventoryEvent);
+            npcEvent = {
+                ...npcEvent,
+                data: {
+                    ...npcEvent.data,
+                    inventory: {
+                        ...npcEvent.data.inventory,
+                    },
+                    inventoryState: [...npcEvent.data.inventoryState, npcInventoryEvent.state],
+                    readyTime: npcReadyTime.toISOString(),
+                },
+                readyTime: npcReadyTime,
+            };
+            npcEvent = {
+                ...npcEvent,
+                data: applyOneInventoryState(npcEvent.data, npcInventoryEvent.state),
+            };
+            this.state.npcs[firstEventIndex] = npcEvent;
+        }
     }
 }

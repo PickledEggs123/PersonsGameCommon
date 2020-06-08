@@ -8,10 +8,9 @@ import {
     ICraftingRecipeItem,
     IFloor,
     IHouse,
+    IInventoryHolder,
     INetworkObject,
-    INpc,
     IObject,
-    IPerson,
     IWall,
 } from './types/GameTypes';
 import { InventoryController } from './inventory';
@@ -20,7 +19,7 @@ import { InventoryController } from './inventory';
  * Data needed to setup the construction controller.
  */
 export interface IConstructionControllerParams {
-    inventoryHolder: IPerson | INpc;
+    inventoryHolder: IInventoryHolder;
     houses: IHouse[];
     floors: IFloor[];
     walls: IWall[];
@@ -30,7 +29,7 @@ export interface IConstructionControllerParams {
  * Data after the construction controller is done.
  */
 export interface IConstructionControllerState {
-    inventoryHolder: IPerson | INpc;
+    inventoryHolder: IInventoryHolder;
     houses: IHouse[];
     floors: IFloor[];
     walls: IWall[];
@@ -59,7 +58,7 @@ export class ConstructionController {
     /**
      * The person or npc performing the construction.
      */
-    private readonly inventoryHolder: IPerson | INpc;
+    private readonly inventoryHolder: IInventoryHolder;
     /**
      * The inventory of the person or npc performing the construction.
      */

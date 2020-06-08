@@ -19,6 +19,35 @@ controllers to handle resources and crafting.
 
 History
 ===
+6/7/2020
+---
+Added CellController to manage NPCs. The game is based around building houses for NPCs which will then work for you. The
+NPC will perform different jobs. There are currently 3 jobs planned so far: gathering, crafting, and hauling. Gatherers
+will walk around to trees, rocks and ponds and gather wood, sticks, stone, clay, coal, iron, reed, and mud. These items
+will be stored into a stockpile that the player designates. The stockpile can store 100 items per slot per tile: 100
+wood (default of 1), 400 wattles (default of 4), or 1000 sticks (default of 10). The crafter will withdraw items from
+the stockpile and convert them into more useful objects (wattle wall to make more houses) then deposit the crafted item
+into the stockpile. The hauler will move resources from far away towns to the local town. This is required when biomes
+are introduced since each biome is a 5 minute circle of different items. Deserts will have sand for crafting glass, forests
+will have trees for crafting wooden homes, and swamps will have lots of ponds to produce mud bricks.
+
+The cell controller will compute paths and object changes for the next 1 minute to 4 hours within a few seconds. The game
+is based on HTTP rest calls which run every 2 seconds and cloud function timers which run every 1 minute. Instead of moving
+one step per minute, it will plan out all gathering, crafting, and hauling ahead of time in a few seconds. The player will
+receive a list of changes over time which is then used to draw the correct state at a moment in time.
+
+Summary
+---
+NPC planning library which computes all paths and object pickup, object drop, object craft for an entire minute in less
+than a second. The library is meant to run in a cloud function every minute.
+
+New features:
+- Stockpiles
+- NPCs
+- NPC Jobs:
+    - Gathering
+    - Crafting
+
 5/16/2020
 ---
 Moved separate frontend and backend code for harvesting resources and inventory management into a common npm package.
