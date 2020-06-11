@@ -221,6 +221,7 @@ const internalApplyPathToNpc = (npc: INpc): INpc => {
                     ...npc,
                     x,
                     y,
+                    path: [],
                 };
             } else {
                 // missing points a and b
@@ -236,6 +237,7 @@ const internalApplyPathToNpc = (npc: INpc): INpc => {
                     ...npc,
                     x,
                     y,
+                    path: [],
                 };
             } else {
                 // cannot find last location, return original npc
@@ -316,7 +318,11 @@ const internalApplyInventoryState = <T extends INpc | IStockpile>(npc: T, all: b
  * @param npc The npc with inventory state to interpolate.
  */
 export const applyInventoryState = <T extends INpc | IStockpile>(npc: T): T => {
-    return internalApplyInventoryState(npc, false);
+    const finalState = internalApplyInventoryState(npc, false);
+    return {
+        ...finalState,
+        inventoryState: [],
+    };
 };
 
 export const applyFutureInventoryState = <T extends INpc | IStockpile>(npc: T): T => {
@@ -344,7 +350,7 @@ export const applyPathToNpc = (npc: INpc): INpc => {
  */
 export const applyStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
     const now = +new Date();
-    return networkObject.state.reduce(
+    const finalState = networkObject.state.reduce(
         (acc: INetworkObject, state: INetworkObjectState<INetworkObject>): INetworkObject => {
             if (now >= Date.parse(state.time)) {
                 return {
@@ -357,6 +363,10 @@ export const applyStateToNetworkObject = (networkObject: INetworkObject): INetwo
         },
         networkObject,
     );
+    return {
+        ...finalState,
+        state: [],
+    };
 };
 
 /**
@@ -366,7 +376,7 @@ export const applyStateToNetworkObject = (networkObject: INetworkObject): INetwo
  */
 export const applyStateToResource = (resource: IResource): IResource => {
     const now = +new Date();
-    return resource.state.reduce((acc: IResource, state: INetworkObjectState<IResource>): IResource => {
+    const finalState = resource.state.reduce((acc: IResource, state: INetworkObjectState<IResource>): IResource => {
         if (now >= Date.parse(state.time)) {
             return {
                 ...acc,
@@ -376,6 +386,10 @@ export const applyStateToResource = (resource: IResource): IResource => {
             return acc;
         }
     }, resource);
+    return {
+        ...finalState,
+        state: [],
+    };
 };
 
 export class CellController {
@@ -442,15 +456,15 @@ export class CellController {
             npcs: this.npcs.map((npc) => {
                 return {
                     readyTime: new Date(Date.parse(npc.readyTime)),
-                    data: npc,
+                    data: applyPathToNpc(npc),
                 };
             }),
-            resources: this.resources.map((o) => ({ ...o })),
+            resources: this.resources.map((resource) => applyStateToResource(resource)),
             spawns: [],
             resourceEvents: [],
             networkObjectEvents: [],
             npcInventoryEvents: [],
-            stockpiles: this.stockpiles.map((o) => ({ ...o })),
+            stockpiles: this.stockpiles.map((stockpile) => applyInventoryState(stockpile)),
             stockpileInventoryEvents: [],
         };
         this.startTime = new Date();
