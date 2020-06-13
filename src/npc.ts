@@ -343,16 +343,14 @@ export const applyPathToNpc = (npc: INpc): INpc => {
     return internalApplyPathToNpc(applyInventoryState(npc));
 };
 
-/**
- * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
- * over time. The UI can update the object using the object information without having to receive network updates.
- * @param networkObject The object containing state updates.
- */
-export const applyStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
+export const internalApplyStateToNetworkObject = (
+    networkObject: INetworkObject,
+    all: boolean = false,
+): INetworkObject => {
     const now = +new Date();
     const finalState = networkObject.state.reduce(
         (acc: INetworkObject, state: INetworkObjectState<INetworkObject>): INetworkObject => {
-            if (now >= Date.parse(state.time)) {
+            if (all || now >= Date.parse(state.time)) {
                 return {
                     ...acc,
                     ...state.state,
@@ -366,6 +364,25 @@ export const applyStateToNetworkObject = (networkObject: INetworkObject): INetwo
     return {
         ...finalState,
     };
+};
+
+/**
+ * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
+ * over time. The UI can update the object using the object information without having to receive network updates.
+ * @param networkObject The object containing state updates.
+ */
+export const applyStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
+    return internalApplyStateToNetworkObject(networkObject, false);
+};
+
+/**
+ * Apply all interpolated state updates onto the network object. Used for debugging. There are cases in which an object
+ * could exist for ever, never being deleted, causing an object leak. if (applyFutureStateToNetworkObject(obj).exist),
+ * the object will exist forever after all state updates. Must add exist: false to the object to remove it.
+ * @param networkObject
+ */
+export const applyFutureStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
+    return internalApplyStateToNetworkObject(networkObject, true);
 };
 
 /**
@@ -814,7 +831,7 @@ export class CellController {
             if (updatedItem) {
                 // inventory picked up item
                 const pickUpEvent: INetworkObjectEvent = {
-                    objectId: spawn.id,
+                    objectId: updatedItem.id,
                     time: pickUpTime,
                     state: {
                         time: pickUpTime.toISOString(),
@@ -824,7 +841,7 @@ export class CellController {
                         },
                     },
                 };
-                this.addNetworkObjectEvent(spawn.id, pickUpEvent);
+                this.addNetworkObjectEvent(updatedItem.id, pickUpEvent);
                 spawnEvent.spawn.state = [...spawnEvent.spawn.state, pickUpEvent.state];
             } else {
                 // inventory merged item with existing object stack
@@ -850,6 +867,12 @@ export class CellController {
                     },
                 };
                 spawnEvent.spawn.state.push(destroyState);
+                const destroyOriginalItemEvent: INetworkObjectEvent = {
+                    objectId: spawn.id,
+                    time: pickUpTime,
+                    state: destroyState,
+                };
+                this.addNetworkObjectEvent(spawn.id, destroyOriginalItemEvent);
             }
 
             // update the npc inventory of the object that was just picked up.

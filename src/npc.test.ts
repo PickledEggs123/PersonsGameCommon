@@ -1,5 +1,11 @@
 import 'jest';
-import { applyPathToNpc, applyStateToNetworkObject, CellController } from './npc';
+import {
+    applyFutureInventoryState,
+    applyFutureStateToNetworkObject,
+    applyPathToNpc,
+    applyStateToNetworkObject,
+    CellController,
+} from './npc';
 import {
     ENetworkObjectType,
     ENpcJobType,
@@ -183,6 +189,15 @@ describe('CellController', () => {
                 stockpiles: expect.anything(),
             });
 
+            for (const obj of stateResult.objects) {
+                if (obj.state.length <= 2) {
+                    const futureObject = applyFutureStateToNetworkObject(obj);
+                    if (futureObject.exist && !futureObject.isInInventory) {
+                        throw new Error('Created an object that will not stop existing, object leak');
+                    }
+                }
+            }
+
             // copy last run into next Cell Controller
             initialNpcs = stateResult.npcs;
             initialResources = stateResult.resources;
@@ -194,6 +209,7 @@ describe('CellController', () => {
     it('should run for 2 minutes in 2 steps', () => runSimulationForAmountOfTime(2 * 60 * 1000, 2));
     it('should run for 10 minutes', () => runSimulationForAmountOfTime(10 * 60 * 1000));
     it('should run for 1 hour', () => runSimulationForAmountOfTime(60 * 60 * 1000));
+    it('should run for 1 hour in 6 steps', () => runSimulationForAmountOfTime(60 * 60 * 1000, 6));
     it('should run for 4 hours', () => runSimulationForAmountOfTime(4 * 60 * 60 * 1000));
     it('should run for 8 hours', () => runSimulationForAmountOfTime(8 * 60 * 60 * 1000));
 });
