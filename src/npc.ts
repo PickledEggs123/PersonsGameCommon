@@ -76,11 +76,11 @@ interface ICellSimulationState {
     npcs: ISimulationEvent<INpc>[];
     resources: IResource[];
     spawns: ISpawnEvent[];
-    resourceEvents: IResourceEvent[];
-    networkObjectEvents: INetworkObjectEvent[];
-    npcInventoryEvents: INpcInventoryEvent[];
+    resourceEvents: { [objectId: string]: IResourceEvent[] };
+    networkObjectEvents: { [objectId: string]: INetworkObjectEvent[] };
+    npcInventoryEvents: { [objectId: string]: INpcInventoryEvent[] };
     stockpiles: IStockpile[];
-    stockpileInventoryEvents: IStockpileInventoryEvent[];
+    stockpileInventoryEvents: { [objectId: string]: IStockpileInventoryEvent[] };
 }
 
 /**
@@ -396,23 +396,23 @@ export class CellController {
     /**
      * The initial list of npcs.
      */
-    private npcs: INpc[];
+    private npcs: { [id: string]: INpc };
     /**
      * The initial list of resources.
      */
-    private resources: IResource[];
+    private resources: { [id: string]: IResource };
     /**
      * The initial list of houses.
      */
-    private houses: IHouse[];
+    private houses: { [id: string]: IHouse };
     /**
      * The initial list of objects.
      */
-    private objects: INetworkObject[];
+    private objects: { [id: string]: INetworkObject };
     /**
      * The initial list of stockpiles.
      */
-    private stockpiles: IStockpile[];
+    private stockpiles: { [id: string]: IStockpile };
 
     /**
      * The state of the cell run.
@@ -421,11 +421,11 @@ export class CellController {
         npcs: [],
         resources: [],
         spawns: [],
-        resourceEvents: [],
-        networkObjectEvents: [],
-        npcInventoryEvents: [],
+        resourceEvents: {},
+        networkObjectEvents: {},
+        npcInventoryEvents: {},
         stockpiles: [],
-        stockpileInventoryEvents: [],
+        stockpileInventoryEvents: {},
     };
 
     /**
@@ -438,11 +438,38 @@ export class CellController {
     private currentMilliseconds: number;
 
     constructor({ npcs, resources, houses, objects, stockpiles }: ICellControllerParams) {
-        this.npcs = npcs.map((npc) => applyPathToNpc(npc));
-        this.resources = resources.map((resource) => applyStateToResource(resource));
-        this.houses = houses;
-        this.objects = objects.map((obj) => applyStateToNetworkObject(obj));
-        this.stockpiles = stockpiles.map((obj) => applyInventoryState(obj));
+        this.npcs = npcs.reduce((acc: { [id: string]: INpc }, npc) => {
+            return {
+                ...acc,
+                [npc.id]: applyPathToNpc(npc),
+            };
+        }, {});
+        this.resources = resources.reduce((acc: { [id: string]: IResource }, resource) => {
+            return {
+                ...acc,
+                [resource.id]: applyStateToResource(resource),
+            };
+        }, {});
+        this.houses = houses.reduce((acc: { [id: string]: IHouse }, house) => {
+            return {
+                ...acc,
+                [house.npcId]: {
+                    ...house,
+                },
+            };
+        }, {});
+        this.objects = objects.reduce((acc: { [id: string]: INetworkObject }, obj) => {
+            return {
+                ...acc,
+                [obj.id]: applyStateToNetworkObject(obj),
+            };
+        }, {});
+        this.stockpiles = stockpiles.reduce((acc: { [id: string]: IStockpile }, obj) => {
+            return {
+                ...acc,
+                [obj.id]: applyInventoryState(obj),
+            };
+        }, {});
 
         this.startTime = new Date();
         this.currentMilliseconds = 0;
@@ -453,19 +480,19 @@ export class CellController {
      */
     private setupState() {
         this.state = {
-            npcs: this.npcs.map((npc) => {
+            npcs: Object.values(this.npcs).map((npc) => {
                 return {
                     readyTime: new Date(Date.parse(npc.readyTime)),
                     data: applyPathToNpc(npc),
                 };
             }),
-            resources: this.resources.map((resource) => applyStateToResource(resource)),
+            resources: Object.values(this.resources).map((resource) => applyStateToResource(resource)),
             spawns: [],
-            resourceEvents: [],
-            networkObjectEvents: [],
-            npcInventoryEvents: [],
-            stockpiles: this.stockpiles.map((stockpile) => applyInventoryState(stockpile)),
-            stockpileInventoryEvents: [],
+            resourceEvents: {},
+            networkObjectEvents: {},
+            npcInventoryEvents: {},
+            stockpiles: Object.values(this.stockpiles).map((stockpile) => applyInventoryState(stockpile)),
+            stockpileInventoryEvents: {},
         };
         this.startTime = new Date();
         this.currentMilliseconds = 0;
@@ -643,6 +670,69 @@ export class CellController {
         };
     }
 
+    private addNetworkObjectEvent(objectId: string, event: INetworkObjectEvent) {
+        if (this.state.networkObjectEvents[objectId]) {
+            this.state.networkObjectEvents[objectId].push(event);
+        } else {
+            this.state.networkObjectEvents[objectId] = [event];
+        }
+    }
+
+    private addNpcInventoryEvent(npcId: string, event: INpcInventoryEvent) {
+        if (this.state.npcInventoryEvents[npcId]) {
+            this.state.npcInventoryEvents[npcId].push(event);
+        } else {
+            this.state.npcInventoryEvents[npcId] = [event];
+        }
+    }
+
+    private addStockpileInventoryEvent(stockpileId: string, event: IStockpileInventoryEvent) {
+        if (this.state.stockpileInventoryEvents[stockpileId]) {
+            this.state.stockpileInventoryEvents[stockpileId].push(event);
+        } else {
+            this.state.stockpileInventoryEvents[stockpileId] = [event];
+        }
+    }
+
+    private addResourceEvent(resourceId: string, event: IResourceEvent) {
+        if (this.state.resourceEvents[resourceId]) {
+            this.state.resourceEvents[resourceId].push(event);
+        } else {
+            this.state.resourceEvents[resourceId] = [event];
+        }
+    }
+
+    /**
+     * Create all events required to spawn an item.
+     * @param spawn The item to spawn.
+     * @param time The time the item was spawned.
+     */
+    private spawnItem(spawn: INetworkObject, time: Date): { spawnEvent: ISpawnEvent } {
+        const spawnedItemEvent: INetworkObjectEvent = {
+            objectId: spawn.id,
+            time,
+            state: {
+                time: time.toISOString(),
+                state: {
+                    exist: true,
+                },
+            },
+        };
+        const spawnEvent: ISpawnEvent = {
+            time,
+            spawn: {
+                ...spawn,
+                exist: false,
+                state: [spawnedItemEvent.state],
+            },
+        };
+        this.state.spawns.push(spawnEvent);
+        this.addNetworkObjectEvent(spawn.id, spawnedItemEvent);
+        return {
+            spawnEvent,
+        };
+    }
+
     /**
      * The collect resources routine for NPCs. Will perform all steps required when collecting resources.
      * @param npcEvent
@@ -703,21 +793,7 @@ export class CellController {
             };
 
             // drop item
-            const spawnState: INetworkObjectState<INetworkObject> = {
-                time: harvestedTime.toISOString(),
-                state: {
-                    exist: true,
-                },
-            };
-            const spawnEvent: ISpawnEvent = {
-                time: harvestedTime,
-                spawn: {
-                    ...spawn,
-                    exist: false,
-                    state: [spawnState],
-                },
-            };
-            this.state.spawns.push(spawnEvent);
+            const { spawnEvent } = this.spawnItem(spawn, harvestedTime);
 
             // create two resource events, one harvested and one ready
             const resourceId = nextResource.id;
@@ -731,20 +807,26 @@ export class CellController {
                 state: respawnedState,
                 time: respawnedTime,
             };
-            this.state.resourceEvents.push(harvestedEvent, respawnEvent);
+            this.addResourceEvent(resourceId, harvestedEvent);
+            this.addResourceEvent(resourceId, respawnEvent);
 
             const inventoryController = new InventoryController(npcEvent.data);
             const { updatedItem, stackableSlots } = inventoryController.pickUpItem(spawnEvent.spawn);
             if (updatedItem) {
                 // inventory picked up item
-                const pickUpState: INetworkObjectState<INetworkObject> = {
-                    time: pickUpTime.toISOString(),
+                const pickUpEvent: INetworkObjectEvent = {
+                    objectId: spawn.id,
+                    time: pickUpTime,
                     state: {
-                        isInInventory: true,
-                        grabbedByNpcId: npcEvent.data.id,
+                        time: pickUpTime.toISOString(),
+                        state: {
+                            isInInventory: true,
+                            grabbedByNpcId: npcEvent.data.id,
+                        },
                     },
                 };
-                spawnEvent.spawn.state.push(pickUpState);
+                this.addNetworkObjectEvent(spawn.id, pickUpEvent);
+                spawnEvent.spawn.state = [...spawnEvent.spawn.state, pickUpEvent.state];
             } else {
                 // inventory merged item with existing object stack
                 for (const stackableSlot of stackableSlots) {
@@ -758,7 +840,7 @@ export class CellController {
                             },
                         },
                     };
-                    this.state.networkObjectEvents.push(mergeItemEvent);
+                    this.addNetworkObjectEvent(stackableSlot.id, mergeItemEvent);
                 }
 
                 // inventory picked up item
@@ -782,7 +864,7 @@ export class CellController {
                     remove: [],
                 },
             };
-            this.state.npcInventoryEvents.push(npcInventoryEvent);
+            this.addNpcInventoryEvent(npcEvent.data.id, npcInventoryEvent);
 
             // update npc to pick up item
             npcEvent = {
@@ -847,7 +929,7 @@ export class CellController {
         // update npcs by removing long path arrays
         const npcs: INpc[] = this.state.npcs.map(
             (npcEvent): INpc => {
-                const npc = this.npcs.find((n) => n.id === npcEvent.data.id);
+                const npc = this.npcs[npcEvent.data.id];
                 if (!npc) {
                     throw new Error('Cannot find initial copy of npc');
                 }
@@ -862,9 +944,7 @@ export class CellController {
                 }
 
                 // get npc inventory events
-                const relevantNpcInventoryEvents = this.state.npcInventoryEvents.filter(
-                    (event) => event.npcId === npc.id,
-                );
+                const relevantNpcInventoryEvents = this.state.npcInventoryEvents[npc.id] || [];
                 const inventoryState: IInventoryState[] = relevantNpcInventoryEvents.map((event) => event.state);
                 return {
                     ...npc,
@@ -878,15 +958,13 @@ export class CellController {
         // update npcs by removing long path arrays
         const stockpiles: IStockpile[] = this.state.stockpiles.map(
             (stockpile): IStockpile => {
-                const initialStockpile = this.stockpiles.find((s) => s.id === stockpile.id);
+                const initialStockpile = this.stockpiles[stockpile.id];
                 if (!initialStockpile) {
                     throw new Error('Cannot find initial stockpile');
                 }
 
                 // get npc inventory events
-                const relevantInventoryEvents = this.state.stockpileInventoryEvents.filter(
-                    (event) => event.stockpileId === stockpile.id,
-                );
+                const relevantInventoryEvents = this.state.stockpileInventoryEvents[stockpile.id] || [];
                 const now = new Date();
                 const inventoryState: IInventoryState[] = [
                     ...initialStockpile.inventoryState.filter((event) => Date.parse(event.time) > +now),
@@ -902,20 +980,16 @@ export class CellController {
 
         const resources: IResource[] = this.state.resources.map((resource) => {
             const state: INetworkObjectState<IResource>[] = [
-                ...this.state.resourceEvents
-                    .filter((resourceEvent) => {
-                        return resourceEvent.resourceId === resource.id;
-                    })
-                    .map(
-                        (resourceEvent): INetworkObjectState<IResource> => {
-                            return {
-                                time: resourceEvent.time.toISOString(),
-                                state: resourceEvent.state,
-                            };
-                        },
-                    ),
+                ...(this.state.resourceEvents[resource.id] || []).map(
+                    (resourceEvent): INetworkObjectState<IResource> => {
+                        return {
+                            time: resourceEvent.time.toISOString(),
+                            state: resourceEvent.state,
+                        };
+                    },
+                ),
             ];
-            const initialResourceCopy = this.resources.find((r) => r.id === resource.id);
+            const initialResourceCopy = this.resources[resource.id];
             if (initialResourceCopy) {
                 return {
                     ...initialResourceCopy,
@@ -931,14 +1005,16 @@ export class CellController {
             // add newly spawned items
             ...this.state.spawns.map(
                 (spawnEvent): INetworkObject => {
-                    return spawnEvent.spawn;
+                    const state = (this.state.networkObjectEvents[spawnEvent.spawn.id] || []).map((e) => e.state);
+                    return {
+                        ...spawnEvent.spawn,
+                        state,
+                    };
                 },
             ),
             // update modified old items
-            ...this.objects.map((obj) => {
-                const objectEvents: INetworkObjectEvent[] = this.state.networkObjectEvents.filter(
-                    (event) => event.objectId === obj.id,
-                );
+            ...Object.values(this.objects).map((obj) => {
+                const objectEvents: INetworkObjectEvent[] = this.state.networkObjectEvents[obj.id] || [];
                 const state: INetworkObjectState<INetworkObject>[] = [
                     // filter old state objects to prevent large arrays
                     ...obj.state.filter((s) => Date.parse(s.time) < +this.startTime),
@@ -1016,7 +1092,7 @@ export class CellController {
                         },
                     },
                 };
-                this.state.networkObjectEvents.push(dropItemEvent);
+                this.addNetworkObjectEvent(npcItem.id, dropItemEvent);
                 const npcDropItemEvent: INpcInventoryEvent = {
                     npcId: npcEvent.data.id,
                     time: npcReadyTime,
@@ -1027,7 +1103,7 @@ export class CellController {
                         remove: [npcItem.id],
                     },
                 };
-                this.state.npcInventoryEvents.push(npcDropItemEvent);
+                this.addNpcInventoryEvent(npcEvent.data.id, npcDropItemEvent);
                 npcEvent = {
                     ...npcEvent,
                     data: {
@@ -1053,7 +1129,7 @@ export class CellController {
                         remove: [],
                     },
                 };
-                this.state.stockpileInventoryEvents.push(stockpileEvent);
+                this.addStockpileInventoryEvent(stockpile.id, stockpileEvent);
                 this.state.stockpiles[stockpileIndex] = applyOneInventoryState(
                     {
                         ...stockpile,
@@ -1073,7 +1149,7 @@ export class CellController {
                             },
                         },
                     };
-                    this.state.networkObjectEvents.push(moveToStockpileEvent);
+                    this.addNetworkObjectEvent(updatedItem.id, moveToStockpileEvent);
                 } else {
                     const destroyOriginalItem: INetworkObjectEvent = {
                         objectId: npcItem.id,
@@ -1085,7 +1161,7 @@ export class CellController {
                             },
                         },
                     };
-                    this.state.networkObjectEvents.push(destroyOriginalItem);
+                    this.addNetworkObjectEvent(npcItem.id, destroyOriginalItem);
 
                     for (const slot of stackableSlots) {
                         const modifyStackedItem: INetworkObjectEvent = {
@@ -1098,7 +1174,7 @@ export class CellController {
                                 },
                             },
                         };
-                        this.state.networkObjectEvents.push(modifyStackedItem);
+                        this.addNetworkObjectEvent(slot.id, modifyStackedItem);
                     }
                 }
             }
@@ -1208,7 +1284,7 @@ export class CellController {
                                 remove: [withdrawnItem.id],
                             },
                         };
-                        this.state.stockpileInventoryEvents.push(stockpileEvent);
+                        this.addStockpileInventoryEvent(stockpile.id, stockpileEvent);
                         this.state.stockpiles[stockpileIndex] = applyOneInventoryState(
                             {
                                 ...stockpile,
@@ -1227,7 +1303,7 @@ export class CellController {
                                 },
                             },
                         };
-                        this.state.networkObjectEvents.push(withdrawnFromStockpileEvent);
+                        this.addNetworkObjectEvent(withdrawnItem.id, withdrawnFromStockpileEvent);
 
                         // pickup item
                         const { updatedItem, stackableSlots } = npcInventoryController.pickUpItem(withdrawnItem);
@@ -1242,7 +1318,7 @@ export class CellController {
                                 },
                             },
                         };
-                        this.state.networkObjectEvents.push(pickUpItemEvent);
+                        this.addNetworkObjectEvent(withdrawnItem.id, pickUpItemEvent);
                         const npcPickUpItemEvent: INpcInventoryEvent = {
                             npcId: npcEvent.data.id,
                             time: npcReadyTime,
@@ -1253,7 +1329,7 @@ export class CellController {
                                 remove: [],
                             },
                         };
-                        this.state.npcInventoryEvents.push(npcPickUpItemEvent);
+                        this.addNpcInventoryEvent(npcEvent.data.id, npcPickUpItemEvent);
                         npcEvent = {
                             ...npcEvent,
                             data: {
@@ -1291,7 +1367,7 @@ export class CellController {
         npcReadyTime: Date;
         npcEvent: ISimulationEvent<INpc>;
     } {
-        const home = this.houses.find((house) => house.npcId === npcEvent.data.id);
+        const home = this.houses[npcEvent.data.id];
         if (!home) {
             throw new Error('Could not find a house for the NPC to go home to');
         }
@@ -1504,11 +1580,7 @@ export class CellController {
 
             // a new object was created inside of the npc inventory
             if (updatedItem) {
-                const spawnEvent: ISpawnEvent = {
-                    time: npcReadyTime,
-                    spawn: updatedItem,
-                };
-                this.state.spawns.push(spawnEvent);
+                this.spawnItem(updatedItem, npcReadyTime);
             }
 
             // for each slot that was stacked (added) or modified (subtracted), an inventory object was modified, create modified event
@@ -1523,7 +1595,7 @@ export class CellController {
                         },
                     },
                 };
-                this.state.networkObjectEvents.push(objectEvent);
+                this.addNetworkObjectEvent(slot.id, objectEvent);
             }
 
             // for each slot that was deleted, create deletion event
@@ -1538,7 +1610,7 @@ export class CellController {
                         },
                     },
                 };
-                this.state.networkObjectEvents.push(objectElement);
+                this.addNetworkObjectEvent(slotId, objectElement);
             }
 
             // update npc inventory in one go
@@ -1553,7 +1625,7 @@ export class CellController {
                 npcId: npcEvent.data.id,
                 state: inventoryState,
             };
-            this.state.npcInventoryEvents.push(npcInventoryEvent);
+            this.addNpcInventoryEvent(npcEvent.data.id, npcInventoryEvent);
             npcEvent = {
                 ...npcEvent,
                 data: {
