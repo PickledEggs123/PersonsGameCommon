@@ -311,7 +311,6 @@ describe('applyStateToNetworkObject', () => {
         };
         expect(applyStateToNetworkObject(initialNetworkObject)).toEqual({
             ...initialNetworkObject,
-            state: [],
             exist: true,
         });
     });
@@ -330,7 +329,6 @@ describe('applyStateToNetworkObject', () => {
         };
         expect(applyStateToNetworkObject(initialNetworkObject)).toEqual({
             ...initialNetworkObject,
-            state: [],
             exist: false,
         });
     });

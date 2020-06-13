@@ -365,7 +365,6 @@ export const applyStateToNetworkObject = (networkObject: INetworkObject): INetwo
     );
     return {
         ...finalState,
-        state: [],
     };
 };
 
@@ -1006,6 +1005,9 @@ export class CellController {
             ...this.state.spawns.map(
                 (spawnEvent): INetworkObject => {
                     const state = (this.state.networkObjectEvents[spawnEvent.spawn.id] || []).map((e) => e.state);
+                    if (state.length === 0) {
+                        throw new Error('Spawn Object Empty State');
+                    }
                     return {
                         ...spawnEvent.spawn,
                         state,
@@ -1017,10 +1019,13 @@ export class CellController {
                 const objectEvents: INetworkObjectEvent[] = this.state.networkObjectEvents[obj.id] || [];
                 const state: INetworkObjectState<INetworkObject>[] = [
                     // filter old state objects to prevent large arrays
-                    ...obj.state.filter((s) => Date.parse(s.time) < +this.startTime),
+                    ...obj.state.filter((s) => Date.parse(s.time) > +this.startTime),
                     // add new object states
                     ...objectEvents.map((event) => event.state),
                 ];
+                if (state.length === 0) {
+                    throw new Error('Modified Object Empty State');
+                }
                 return {
                     ...applyStateToNetworkObject(obj),
                     state,
