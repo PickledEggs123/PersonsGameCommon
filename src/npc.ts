@@ -1011,6 +1011,7 @@ export class CellController {
                     return {
                         ...spawnEvent.spawn,
                         state,
+                        lastUpdate: new Date().toISOString(),
                     };
                 },
             ),
@@ -1023,9 +1024,6 @@ export class CellController {
                     // add new object states
                     ...objectEvents.map((event) => event.state),
                 ];
-                if (state.length === 0) {
-                    throw new Error('Modified Object Empty State');
-                }
                 return {
                     ...applyStateToNetworkObject(obj),
                     state,

@@ -145,6 +145,7 @@ describe('InventoryController', () => {
         expect(controller.getState()).toEqual({
             inventory: controller.getInventory(),
             craftingState: controller.getCraftingState(),
+            lastUpdate: expect.any(String),
         });
     };
     /**
@@ -237,6 +238,7 @@ describe('InventoryController', () => {
         expect(controller.getState()).toEqual({
             inventory: controller.getInventory(),
             craftingState: controller.getCraftingState(),
+            lastUpdate: expect.any(String),
         });
     };
     it('should pick up 20 sticks and craft a wattle', () => craftWattle(20));

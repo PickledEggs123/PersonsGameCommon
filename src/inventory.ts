@@ -430,6 +430,7 @@ export class InventoryController {
         return {
             inventory: this.getInventory(),
             craftingState: this.getCraftingState(),
+            lastUpdate: new Date().toISOString(),
         };
     }
 
@@ -465,7 +466,10 @@ export class InventoryController {
 
                 // add a modified slot if it is not in a list of already modified slots
                 if (!modifiedSlots.map((s) => s.id).includes(slot.id)) {
-                    modifiedSlots.push(slot);
+                    modifiedSlots.push({
+                        ...slot,
+                        lastUpdate: new Date().toISOString(),
+                    });
                 }
             }
         }
