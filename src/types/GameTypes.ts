@@ -440,9 +440,9 @@ export enum EDrawableType {
      */
     OBJECT = 'OBJECT',
     /**
-     * A wall. Walls are hidden when below the current person and visible when above the current person.
+     * A Tag is UI element which should appear on top of everything.
      */
-    WALL = 'WALL',
+    TAG = 'TAG',
 }
 
 /**
