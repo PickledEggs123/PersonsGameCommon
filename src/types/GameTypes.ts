@@ -823,6 +823,14 @@ export interface IKeyDownHandler {
  * The HTTP GET /persons response.
  */
 export interface IApiPersonsGetResponse {
+    /**
+     * The id of the person to follow.
+     */
+    currentPersonId: string | null;
+    /**
+     * The id of the npc to follow.
+     */
+    currentNpcId: string | null;
     persons: IPerson[];
     npcs: INpc[];
     cars: ICar[];
