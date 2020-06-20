@@ -97,7 +97,7 @@ export const listOfRecipes: ICraftingRecipe[] = [
 /**
  * A class which can handle inventory operations like picking up an item or dropping an item or crafting an item.
  */
-export class InventoryController {
+export class InventoryController<T extends IInventoryHolder> {
     /**
      * The number of rows of the inventory.
      */
@@ -129,7 +129,7 @@ export class InventoryController {
     /**
      * The person or npc holding the inventory.
      */
-    private inventoryHolder: IInventoryHolder;
+    private inventoryHolder: T;
     /**
      * The random number generator used to generate predictable random crafted item ids.
      */
@@ -141,7 +141,7 @@ export class InventoryController {
      * of the inventory after a specific set of operations.
      * @param inventoryHolder The inventory holding person or npc.
      */
-    constructor(inventoryHolder: IInventoryHolder) {
+    constructor(inventoryHolder: T) {
         // handle inventory slots
         const inventory = inventoryHolder.inventory;
         this.numRows = inventory.rows;
@@ -151,7 +151,7 @@ export class InventoryController {
 
         // determine if the inventory holder is a person or an npc
         this.isStockpile = inventoryHolder.objectType === ENetworkObjectType.STOCKPILE;
-        this.isNpc = !this.isStockpile && !!(inventoryHolder as INpc).path;
+        this.isNpc = !this.isStockpile && !!((inventoryHolder as unknown) as INpc).path;
         this.isPerson = !this.isStockpile && !this.isNpc;
 
         // copy inventory holder
@@ -426,12 +426,12 @@ export class InventoryController {
     /**
      * Return the total state change to the inventory holder. This combines the new inventory and crafting state.
      */
-    getState(): Partial<IInventoryHolder> {
+    getState(): Partial<T> {
         return {
             inventory: this.getInventory(),
             craftingState: this.getCraftingState(),
             lastUpdate: new Date().toISOString(),
-        };
+        } as Partial<T>;
     }
 
     /**

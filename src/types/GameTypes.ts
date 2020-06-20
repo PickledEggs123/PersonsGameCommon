@@ -289,6 +289,107 @@ export interface ITerrainTilePosition {
 }
 
 /**
+ * Represent an area tile position.
+ */
+export interface IAreaTilePosition {
+    tileX: number;
+    tileY: number;
+}
+
+/**
+ * Represent a biome tile position.
+ */
+export interface IBiomeTilePosition {
+    tileX: number;
+    tileY: number;
+}
+
+/**
+ * Represent a continent tile position.
+ */
+export interface IContinentTilePosition {
+    tileX: number;
+    tileY: number;
+}
+
+/**
+ * Represent one of the terrain tile positions.
+ */
+export type TTerrainTilePosition =
+    | ITerrainTilePosition
+    | IAreaTilePosition
+    | IBiomeTilePosition
+    | IContinentTilePosition;
+
+/**
+ * Represent a continental shelf which produces land or ocean depending on if they move toward or away from another continent.
+ */
+export interface IContinentalShelf extends IObject {
+    xDirection: number;
+    yDirection: number;
+    corners: IObject[];
+    neighbors: IObject[];
+}
+
+export enum EBiomeType {
+    BEACH = 'BEACH',
+    DESERT = 'DESERT',
+    PLAIN = 'PLAIN',
+    FOREST = 'FOREST',
+    JUNGLE = 'JUNGLE',
+}
+
+/**
+ * The different altitudes of continents.
+ */
+export enum EAltitudeType {
+    /**
+     * 0 Altitude, open ocean.
+     */
+    OCEAN = 'OCEAN',
+    /**
+     * The terrain is low land which is swampy, lots of pond and mud.
+     */
+    SWAMP = 'SWAMP',
+    /**
+     * The altitude is medium height and dry, lots of trees.
+     */
+    PLAIN = 'PLAIN',
+    /**
+     * The altitude is medium and the land is hilly, some trees.
+     */
+    HILL = 'HILL',
+    /**
+     * The altitude is high and there are lots of rocks, some trees and some ponds.
+     */
+    MOUNTAIN = 'MOUNTAIN',
+    /**
+     * The altitude is very high, there are only rocks.
+     */
+    ROCKY = 'ROCKY',
+}
+
+/**
+ * The land is a continent which contains the altitude portion of the biome. Different altitudes will produce different
+ * lands.
+ */
+export interface IContinent extends IObject {
+    altitudeType: EAltitudeType;
+    corners: IObject[];
+}
+
+export interface IBiome extends IObject {
+    altitudeType: EAltitudeType;
+    corners: IObject[];
+}
+
+export interface IArea extends IObject {
+    altitudeType: EAltitudeType;
+    biomeType: EBiomeType;
+    corners: IObject[];
+}
+
+/**
  * Represent a data structure for a voronoi diagram.
  */
 export interface IVoronoi {
@@ -300,6 +401,10 @@ export interface IVoronoi {
      * The points that are adjacent to [[point]].
      */
     corners: IObject[];
+    /**
+     * A list of neighboring points.
+     */
+    neighbors: IObject[];
 }
 
 /**

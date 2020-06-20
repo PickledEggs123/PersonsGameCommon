@@ -1,7 +1,9 @@
 <component name="ProjectDictionaryState">
   <dictionary name="tyler">
     <words>
+      <w>biome</w>
       <w>biomes</w>
+      <w>delaunay</w>
       <w>npcs</w>
       <w>pathfinding</w>
       <w>respawn</w>
@@ -10,6 +12,7 @@
       <w>seedrandom</w>
       <w>teleport</w>
       <w>voronoi</w>
+      <w>voronois</w>
     </words>
   </dictionary>
 </component>
