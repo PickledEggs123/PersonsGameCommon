@@ -18,8 +18,8 @@ import { InventoryController } from './inventory';
 /**
  * Data needed to setup the construction controller.
  */
-export interface IConstructionControllerParams {
-    inventoryHolder: IInventoryHolder;
+export interface IConstructionControllerParams<T extends IInventoryHolder> {
+    inventoryHolder: T;
     houses: IHouse[];
     floors: IFloor[];
     walls: IWall[];
@@ -28,8 +28,8 @@ export interface IConstructionControllerParams {
 /**
  * Data after the construction controller is done.
  */
-export interface IConstructionControllerState {
-    inventoryHolder: IInventoryHolder;
+export interface IConstructionControllerState<T extends IInventoryHolder> {
+    inventoryHolder: T;
     houses: IHouse[];
     floors: IFloor[];
     walls: IWall[];
@@ -54,15 +54,15 @@ export interface IConstructBuildingTransaction {
 /**
  * A class which handles all logic behind constructing or destroying a building.
  */
-export class ConstructionController {
+export class ConstructionController<T extends IInventoryHolder> {
     /**
      * The person or npc performing the construction.
      */
-    private readonly inventoryHolder: IInventoryHolder;
+    private readonly inventoryHolder: T;
     /**
      * The inventory of the person or npc performing the construction.
      */
-    private inventoryController: InventoryController;
+    private inventoryController: InventoryController<T>;
     private houses: IHouse[];
     private floors: IFloor[];
     private walls: IWall[];
@@ -75,7 +75,7 @@ export class ConstructionController {
      * @param floors The floors in the area.
      * @param walls The walls in the area.
      */
-    constructor({ inventoryHolder, houses, floors, walls }: IConstructionControllerParams) {
+    constructor({ inventoryHolder, houses, floors, walls }: IConstructionControllerParams<T>) {
         this.inventoryHolder = inventoryHolder;
         this.inventoryController = new InventoryController(this.inventoryHolder);
         this.houses = houses;
@@ -531,7 +531,7 @@ export class ConstructionController {
         };
     }
 
-    public getState(): IConstructionControllerState {
+    public getState(): IConstructionControllerState<T> {
         return {
             inventoryHolder: {
                 ...this.inventoryHolder,
