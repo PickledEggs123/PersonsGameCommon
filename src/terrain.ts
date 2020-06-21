@@ -315,8 +315,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 10,
-        maxResources: 50,
+        minResources: 40,
+        maxResources: 200,
     },
     {
         altitudeType: EAltitudeType.PLAIN,
@@ -336,8 +336,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 10,
-        maxResources: 50,
+        minResources: 40,
+        maxResources: 200,
     },
     {
         altitudeType: EAltitudeType.HILL,
@@ -357,8 +357,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 25,
-        maxResources: 5,
+        minResources: 20,
+        maxResources: 100,
     },
     {
         altitudeType: EAltitudeType.MOUNTAIN,
@@ -378,8 +378,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 15,
-        maxResources: 5,
+        minResources: 20,
+        maxResources: 60,
     },
     {
         altitudeType: EAltitudeType.ROCKY,
@@ -399,8 +399,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 50,
-        maxResources: 20,
+        minResources: 80,
+        maxResources: 200,
     },
     {
         altitudeType: EAltitudeType.OCEAN,
@@ -718,8 +718,8 @@ const randomPointInPolygonTriangle = (triangle: ITriangleInPolygon, rng: seedran
 
     // pick random point inside triangle
     return {
-        x: bottomWeight * bottom.x + a.x,
-        y: sideWeight * side.y + a.y,
+        x: Math.floor((bottomWeight * bottom.x + a.x) / 10) * 10,
+        y: Math.floor((sideWeight * side.y + a.y) / 10) * 10,
     };
 };
 const randomPointInPolygon = (polygon: IObject[], rng: seedrandom.prng): IObject => {
@@ -802,8 +802,9 @@ export const generateTerrainTile = (areas: IArea[], tilePosition: ITerrainTilePo
             const areaSpawnData = getMatchingAreaData(area);
             const sha = new shajs.sha256().update(`${mapHash}-area-${area.x}-${area.y}`).digest('base64');
             const rng: seedrandom.prng = seedrandom.alea(sha);
-            const numberOfResources =
-                rng.double() * (areaSpawnData.maxResources - areaSpawnData.minResources) + areaSpawnData.minResources;
+            const numberOfResources = Math.floor(
+                rng.double() * (areaSpawnData.maxResources - areaSpawnData.minResources) + areaSpawnData.minResources,
+            );
             const resources: IResource[] = [];
             for (let i = 0; i < numberOfResources; i++) {
                 const point = randomPointInPolygon(area.corners, rng);
@@ -811,7 +812,7 @@ export const generateTerrainTile = (areas: IArea[], tilePosition: ITerrainTilePo
                 const spawn = areaSpawnData.cumulativeSpawns.find(
                     (data) => data.probability < spawnChance,
                 ) as ITerrainResourceData;
-                if (spawn && resources.every((r) => distance(point, r) > 150)) {
+                if (spawn && resources.every((r) => distance(point, r) >= 100)) {
                     const resource: IResource = createResource(point, spawn.objectType);
                     resources.push(resource);
                 }

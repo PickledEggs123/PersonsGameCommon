@@ -14,6 +14,7 @@ import {
     getBiomeTilePosition,
     getContinentTilePosition,
     getTerrainTilePosition,
+    IGeneratedResources,
     terrainTileSize,
     terrainTileToId,
 } from './terrain';
@@ -90,14 +91,17 @@ describe('Terrain', () => {
     const areas = areaTilePositions.reduce((acc: IArea[], tilePosition) => {
         return [...acc, ...generateAreaTile(biomes, tilePosition)];
     }, []);
-    const resources = tilePositions.reduce((acc: IResource[], tilePosition) => {
+    const generatedResources = tilePositions.reduce((acc: IGeneratedResources[], tilePosition) => {
         return [
             ...acc,
             ...generateTerrainForLocation(tilePosition, {
                 x: tilePosition.tileX * terrainTileSize,
                 y: tilePosition.tileY * terrainTileSize,
-            }).reduce((acc2: IResource[], item) => [...acc2, ...item.resources], []),
+            }),
         ];
+    }, []);
+    const resources = generatedResources.reduce((acc: IResource[], generatedResource) => {
+        return [...acc, ...generatedResource.resources];
     }, []);
     it('should contain continents', () => {
         expect(continents).toEqual(
@@ -372,6 +376,16 @@ describe('Terrain', () => {
             ]),
         );
     });
+    it('should check generated resources', () => {
+        expect(generatedResources).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    areaId: expect.any(String),
+                    resources: expect.arrayContaining([expect.anything()]),
+                }),
+            ]),
+        );
+    });
     it('should match terrain resources png', async () => {
         const c = canvas.createCanvas(2000, 2000);
         const context = c.getContext('2d');
@@ -393,6 +407,21 @@ describe('Terrain', () => {
                 context.arc(resource.x, resource.y, 10, 0, Math.PI * 2);
                 context.fill();
             }
+            context.restore();
+        }
+        for (const area of areas) {
+            context.save();
+            context.beginPath();
+            context.strokeStyle = 'black';
+            context.lineWidth = 2;
+            drawCornerObjects({
+                context,
+                tileObject: area,
+                tileSize: 0,
+                radius: 0,
+                scale: 1,
+            });
+            context.stroke();
             context.restore();
         }
         const pipingImage = c.createPNGStream().pipe(fs.createWriteStream('terrainImageResources.png'));
