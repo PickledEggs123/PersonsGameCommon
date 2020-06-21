@@ -96,7 +96,7 @@ describe('Terrain', () => {
             ...generateTerrainForLocation(tilePosition, {
                 x: tilePosition.tileX * terrainTileSize,
                 y: tilePosition.tileY * terrainTileSize,
-            }),
+            }).reduce((acc2: IResource[], item) => [...acc2, ...item.resources], []),
         ];
     }, []);
     it('should contain continents', () => {
@@ -416,11 +416,11 @@ describe('Terrain', () => {
         expect(imageBuffer).toMatchImageSnapshot();
     });
     it('should match terrain tile png', async () => {
-        const c = canvas.createCanvas(1500, 1500);
+        const c = canvas.createCanvas(750, 750);
         const context = c.getContext('2d');
         const diagram = delaunay.Delaunay.from(areas.map(({ x, y }) => [x, y]));
-        for (let x = -150; x < 150; x++) {
-            for (let y = -150; y < 150; y++) {
+        for (let x = -75; x < 75; x++) {
+            for (let y = -75; y < 75; y++) {
                 const location: IObject = {
                     x: x * terrainTileSize,
                     y: y * terrainTileSize,
@@ -431,7 +431,7 @@ describe('Terrain', () => {
                     context.save();
                     context.beginPath();
                     context.fillStyle = getTileColor(area);
-                    context.rect((x + 150) * 5, (y + 150) * 5, 5, 5);
+                    context.rect((x + 75) * 5, (y + 75) * 5, 5, 5);
                     context.fill();
                     context.restore();
                 } else {

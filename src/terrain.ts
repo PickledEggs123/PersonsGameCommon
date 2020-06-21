@@ -21,10 +21,11 @@ import * as delaunay from 'd3-delaunay';
 import * as seedrandom from 'seedrandom';
 import * as shajs from 'sha.js';
 
+const mapHash = '11';
 export const terrainTileSize = 1000;
-export const areaTileSize = 2.5 * 6 * terrainTileSize;
-export const biomeTileSize = 5 * 6 * terrainTileSize;
-export const continentTileSize = 10 * 6 * terrainTileSize;
+export const areaTileSize = 6 * terrainTileSize;
+export const biomeTileSize = 2.5 * 6 * terrainTileSize;
+export const continentTileSize = 5 * 6 * terrainTileSize;
 
 /**
  * Convert terrain tile to an id.
@@ -147,7 +148,7 @@ const lloydRelaxation = (voronois: IVoronoi[]): IObject[] => {
  * The size of a terrain tile. This is the smallest unit of terrain generation.
  */
 const generateTilePoints = (tileX: number, tileY: number, min: number, max: number, tileSize: number): IObject[] => {
-    const sha = new shajs.sha256().update(`terrain-${tileX}-${tileY}`).digest('base64');
+    const sha = new shajs.sha256().update(`${mapHash}-terrain-${tileX}-${tileY}`).digest('base64');
     const rng: seedrandom.prng = seedrandom.alea(sha);
     const numberOfPoints = Math.floor(rng.double() * (max - min)) + min;
     return new Array(numberOfPoints).fill(0).map(() => ({
@@ -662,37 +663,165 @@ export const generateAreaTile = (biomes: IBiome[], tilePosition: IAreaTilePositi
     );
 };
 
+interface ITriangleInPolygon {
+    points: IObject[];
+    area: number;
+    weight: number;
+}
+const randomPointInPolygonTriangle = (triangle: ITriangleInPolygon, rng: seedrandom.prng): IObject => {
+    const a = triangle.points[0];
+    const b = triangle.points[1];
+    const c = triangle.points[2];
+    const bottom = {
+        x: b.x - a.x,
+        y: b.y - a.y,
+    };
+    const side = {
+        x: c.x - a.x,
+        y: c.y - a.y,
+    };
+
+    // pick a random point on the unit triangle [0, 1)
+    let bottomWeight = rng.double();
+    let sideWeight = rng.double();
+
+    // reflect weights
+    if (bottomWeight + sideWeight > 1) {
+        const normal: IObject = {
+            x: 1,
+            y: -1,
+        };
+        const x0: IObject = {
+            x: 0,
+            y: 1,
+        };
+        const x1: IObject = {
+            x: bottomWeight,
+            y: sideWeight,
+        };
+        const xDiff: IObject = {
+            x: bottomWeight - x0.x,
+            y: bottomWeight - x0.y,
+        };
+        const scalarNormal = xDiff.x * normal.x + xDiff.y * normal.y;
+        const finalNormal: IObject = {
+            x: normal.x * scalarNormal,
+            y: normal.y * scalarNormal,
+        };
+        const x1Final: IObject = {
+            x: -x1.x + 2 * x0.x + 2 * finalNormal.x,
+            y: -x1.y + 2 * x0.y + 2 * finalNormal.y,
+        };
+        bottomWeight = x1Final.x;
+        sideWeight = x1Final.y;
+    }
+
+    // pick random point inside triangle
+    return {
+        x: bottomWeight * bottom.x + a.x,
+        y: sideWeight * side.y + a.y,
+    };
+};
+const randomPointInPolygon = (polygon: IObject[], rng: seedrandom.prng): IObject => {
+    let triangles: ITriangleInPolygon[] = [];
+
+    // split polygon into multiple triangles using the fan method
+    for (let i = 0; i < polygon.length - 2; i++) {
+        const a = polygon[i];
+        const b = polygon[i + 1];
+        const c = polygon[i + 2];
+        const bottom = {
+            x: b.x - a.x,
+            y: b.y - a.y,
+        };
+        const side = {
+            x: c.x - a.x,
+            y: c.y - a.y,
+        };
+        const crossProduct: IObject = {
+            x: bottom.x * side.y,
+            y: -bottom.y * side.x,
+        };
+        const area = Math.sqrt(Math.pow(crossProduct.x, 2) + Math.pow(crossProduct.y, 2));
+        const newTriangle: ITriangleInPolygon = {
+            points: [a, b, c],
+            area,
+            weight: triangles.reduce((acc: number, t): number => {
+                return acc + t.area;
+            }, area),
+        };
+        triangles.push(newTriangle);
+    }
+    triangles = triangles.reverse();
+
+    // pick a random triangle proportional to triangle area using cumulative probability
+    const cumulativeSum = triangles.reduce((acc: number, t): number => {
+        return acc + t.area;
+    }, 0);
+    const randomWeight = cumulativeSum * rng.double();
+    const triangle = triangles.find((t) => randomWeight <= t.weight);
+    if (!triangle) {
+        throw new Error('Could not find random triangle');
+    } else {
+        return randomPointInPolygonTriangle(triangle, rng);
+    }
+};
+
+export interface IGeneratedResources {
+    areaId: string;
+    resources: IResource[];
+}
+
 /**
  * Generate a terrain tile.
  * @param areas A list of area tiles which contain different biomes which spawn different resources.
  * @param tilePosition The tile position to generate.
  */
-export const generateTerrainTile = (areas: IArea[], tilePosition: ITerrainTilePosition): IResource[] => {
-    const diagram = delaunay.Delaunay.from(areas.map(({ x, y }) => [x, y]));
-    const tilePositionAreaIndex = diagram.find(
+export const generateTerrainTile = (areas: IArea[], tilePosition: ITerrainTilePosition): IGeneratedResources[] => {
+    const diagram = delaunay.Delaunay.from(areas.map(({ x, y }) => [x, y])).voronoi([
         tilePosition.tileX * terrainTileSize,
         tilePosition.tileY * terrainTileSize,
-    );
-    const tilePositionArea = areas[tilePositionAreaIndex];
-    const tilePositionAreaBiomeData = getMatchingAreaData(tilePositionArea);
-    return generateTerrainPoints(tilePosition, {
-        tileSize: terrainTileSize,
-        minPoints: tilePositionAreaBiomeData.minResources,
-        maxPoints: tilePositionAreaBiomeData.maxResources,
-        numEdgeTiles: 1,
-    }).reduce((acc: IResource[], voronoi: IVoronoi): IResource[] => {
-        const point = voronoi.point;
-        const rng: seedrandom.prng = seedrandom.alea(`resource(${point.x},${point.y})`);
-        const spawnChance = rng.quick() * tilePositionAreaBiomeData.cumulativeSum;
-        const spawn = tilePositionAreaBiomeData.cumulativeSpawns.find(
-            (data) => data.probability < spawnChance,
-        ) as ITerrainResourceData;
-        if (spawn) {
-            return [...acc, createResource(point, spawn.objectType)];
-        } else {
-            return acc;
+        (tilePosition.tileX + 1) * terrainTileSize,
+        (tilePosition.tileY + 1) * terrainTileSize,
+    ]);
+
+    const areasInTile: IArea[] = [];
+    for (let i = 0; i < areas.length; i++) {
+        if (diagram.cellPolygon(i)) {
+            areasInTile.push(areas[i]);
         }
-    }, []);
+    }
+
+    const distance = (a: IObject, b: IObject): number => {
+        return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
+    };
+
+    return areasInTile.map(
+        (area): IGeneratedResources => {
+            const areaId: string = `area-tile(${area.x},${area.y})`;
+            const areaSpawnData = getMatchingAreaData(area);
+            const sha = new shajs.sha256().update(`${mapHash}-area-${area.x}-${area.y}`).digest('base64');
+            const rng: seedrandom.prng = seedrandom.alea(sha);
+            const numberOfResources =
+                rng.double() * (areaSpawnData.maxResources - areaSpawnData.minResources) + areaSpawnData.minResources;
+            const resources: IResource[] = [];
+            for (let i = 0; i < numberOfResources; i++) {
+                const point = randomPointInPolygon(area.corners, rng);
+                const spawnChance = rng.quick() * areaSpawnData.cumulativeSum;
+                const spawn = areaSpawnData.cumulativeSpawns.find(
+                    (data) => data.probability < spawnChance,
+                ) as ITerrainResourceData;
+                if (spawn && resources.every((r) => distance(point, r) > 150)) {
+                    const resource: IResource = createResource(point, spawn.objectType);
+                    resources.push(resource);
+                }
+            }
+            return {
+                areaId,
+                resources,
+            };
+        },
+    );
 };
 
 export const generateTerrainAreas = (location: IObject): IArea[] => {
@@ -714,10 +843,13 @@ export const generateTerrainAreas = (location: IObject): IArea[] => {
     }, []);
 };
 
-export const generateTerrainForLocation = (tilePosition: ITerrainTilePosition, location: IObject): IResource[] => {
+export const generateTerrainForLocation = (
+    tilePosition: ITerrainTilePosition,
+    location: IObject,
+): IGeneratedResources[] => {
     const terrainTilePosition: ITerrainTilePosition = tilePosition;
     const areas: IArea[] = generateTerrainAreas(location);
-    return terrainTilesThatShouldBeLoaded(terrainTilePosition).reduce((acc: IResource[], position) => {
+    return terrainTilesThatShouldBeLoaded(terrainTilePosition).reduce((acc: IGeneratedResources[], position) => {
         return [...acc, ...generateTerrainTile(areas, position)];
     }, []);
 };
