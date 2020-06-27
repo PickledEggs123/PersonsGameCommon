@@ -951,6 +951,7 @@ export interface IApiPersonsGetResponse {
      */
     currentNpcId: string | null;
     loadedCells: INetworkObjectCellPosition[];
+    loadedTerrainCells: ITerrainTilePosition[];
     persons: IPerson[];
     npcs: INpc[];
     cars: ICar[];
