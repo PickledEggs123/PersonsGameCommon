@@ -9,7 +9,7 @@ import { INetworkObjectCellPosition, IObject } from './types/GameTypes';
  */
 export const cellSize = 2000;
 
-const getNetworkObjectWorldCellPosition = (networkObject: IObject): INetworkObjectCellPosition => {
+export const getNetworkObjectWorldCellPosition = (networkObject: IObject): INetworkObjectCellPosition => {
     const x = Math.floor(networkObject.x / cellSize);
     const y = Math.floor(networkObject.y / cellSize);
     return {
