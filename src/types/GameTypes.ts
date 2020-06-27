@@ -925,6 +925,20 @@ export interface IKeyDownHandler {
 }
 
 /**
+ * The intermediate world cell type.
+ */
+export interface INetworkObjectCellPosition {
+    /**
+     * X axis cell number.
+     */
+    x: number;
+    /**
+     * Y axis cell number.
+     */
+    y: number;
+}
+
+/**
  * The HTTP GET /persons response.
  */
 export interface IApiPersonsGetResponse {
@@ -936,6 +950,7 @@ export interface IApiPersonsGetResponse {
      * The id of the npc to follow.
      */
     currentNpcId: string | null;
+    loadedCells: INetworkObjectCellPosition[];
     persons: IPerson[];
     npcs: INpc[];
     cars: ICar[];
