@@ -227,8 +227,8 @@ const generateTerrainPoints = <T extends TTerrainTilePosition>(
  */
 export const terrainTilesThatShouldBeLoaded = <T extends TTerrainTilePosition>({ tileX, tileY }: T): T[] => {
     const tiles = [];
-    for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
+    for (let i = -2; i <= 2; i++) {
+        for (let j = -2; j <= 2; j++) {
             tiles.push({
                 tileX: tileX + i,
                 tileY: tileY + j,
