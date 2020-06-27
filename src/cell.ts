@@ -21,7 +21,7 @@ export const getNetworkObjectWorldCellPosition = (networkObject: IObject): INetw
  * Get the cell string of a cell position.
  * @param position The cell position to convert into a string.
  */
-const networkObjectCellPositionToCellString = (position: INetworkObjectCellPosition): string => {
+export const networkObjectCellPositionToCellString = (position: INetworkObjectCellPosition): string => {
     return `cell:${position.x},${position.y}`;
 };
 /**
