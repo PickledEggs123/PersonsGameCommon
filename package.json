@@ -7,6 +7,7 @@
   "dependencies": {
     "canvas": "^2.6.1",
     "d3-delaunay": "^5.2.1",
+    "polygon-clipping": "^0.14.3",
     "seedrandom": "^3.0.5",
     "sha.js": "^2.4.11"
   },
@@ -40,11 +41,13 @@
     "@babel/preset-env": "^7.9.6",
     "@babel/preset-typescript": "^7.9.0",
     "@types/d3-delaunay": "^4.1.0",
+    "@types/d3-polygon": "^1.0.7",
     "@types/jest": "^25.2.2",
     "@types/jest-image-snapshot": "^3.1.0",
     "@types/seedrandom": "^2.4.28",
     "@types/sha.js": "^2.4.0",
     "babel-jest": "^26.0.1",
+    "d3-polygon": "^1.0.6",
     "jest": "^26.0.1",
     "jest-image-snapshot": "^4.0.2",
     "prettier": "^2.0.5",

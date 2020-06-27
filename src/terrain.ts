@@ -18,8 +18,10 @@ import {
     TTerrainTilePosition,
 } from './types/GameTypes';
 import * as delaunay from 'd3-delaunay';
+import * as d3Polygon from 'd3-polygon';
 import * as seedrandom from 'seedrandom';
 import * as shajs from 'sha.js';
+import * as polygonClipping from 'polygon-clipping';
 
 const mapHash = '11';
 export const terrainTileSize = 1000;
@@ -89,57 +91,18 @@ const computeVoronoi = (points: IObject[], bounds: delaunay.Delaunay.Bounds): IV
  * @param voronois A random set of points with voronoi information included.
  */
 const lloydRelaxation = (voronois: IVoronoi[]): IObject[] => {
-    const weightedDistance = () => {
-        return 1;
-    };
-    // computer the weighted average of the corners of a voronoi cell
-    const weightedAverageOfCorners = (voronoi: IVoronoi): IObject => {
-        // compute weights for each point based on squared distance, farther away points will have more weights,
-        // assume that by moving towards farther away points, the clusters of random points will spread out
-        const pointsWithWeights = voronoi.corners.reduce(
-            (acc: { weight: number; corner: IObject }[], corner: IObject) => {
-                const weight = weightedDistance();
-                return [
-                    ...acc,
-                    {
-                        weight,
-                        corner,
-                    },
-                ];
-            },
-            [],
-        );
-
-        // compute the sum point and sum weight
-        const newPointWithWeight = pointsWithWeights.reduce(
-            (acc, pointWithWeight) => {
-                return {
-                    weight: acc.weight + pointWithWeight.weight,
-                    corner: {
-                        x: acc.corner.x + pointWithWeight.corner.x * pointWithWeight.weight,
-                        y: acc.corner.y + pointWithWeight.corner.y * pointWithWeight.weight,
-                    },
-                };
-            },
-            {
-                weight: 0,
-                corner: {
-                    x: 0,
-                    y: 0,
-                },
-            },
-        );
-
-        // divide sum point by sum weight to get a weighted average
-        return {
-            x: newPointWithWeight.corner.x / newPointWithWeight.weight,
-            y: newPointWithWeight.corner.y / newPointWithWeight.weight,
-        };
-    };
-    // approximate lloyd's relaxation by averaging the corners.
+    // move each point towards the centroid of the voronoi cell.
     return voronois.map(
         (voronoi): IObject => {
-            return weightedAverageOfCorners(voronoi);
+            const centroid = d3Polygon.polygonCentroid(
+                voronoi.corners.map((corner: IObject): [number, number] => {
+                    return [corner.x, corner.y];
+                }),
+            );
+            return {
+                x: centroid[0],
+                y: centroid[1],
+            };
         },
     );
 };
@@ -315,8 +278,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 40,
-        maxResources: 200,
+        minResources: 20,
+        maxResources: 100,
     },
     {
         altitudeType: EAltitudeType.PLAIN,
@@ -336,8 +299,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 40,
-        maxResources: 200,
+        minResources: 20,
+        maxResources: 100,
     },
     {
         altitudeType: EAltitudeType.HILL,
@@ -357,8 +320,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 20,
-        maxResources: 100,
+        minResources: 10,
+        maxResources: 50,
     },
     {
         altitudeType: EAltitudeType.MOUNTAIN,
@@ -378,8 +341,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 20,
-        maxResources: 60,
+        minResources: 10,
+        maxResources: 30,
     },
     {
         altitudeType: EAltitudeType.ROCKY,
@@ -399,8 +362,8 @@ const areaBiomeSpawns: IAreaResourceData[] = [
         ],
         cumulativeSpawns: [],
         cumulativeSum: 0,
-        minResources: 80,
-        maxResources: 200,
+        minResources: 40,
+        maxResources: 100,
     },
     {
         altitudeType: EAltitudeType.OCEAN,
@@ -718,8 +681,8 @@ const randomPointInPolygonTriangle = (triangle: ITriangleInPolygon, rng: seedran
 
     // pick random point inside triangle
     return {
-        x: Math.floor((bottomWeight * bottom.x + a.x) / 10) * 10,
-        y: Math.floor((sideWeight * side.y + a.y) / 10) * 10,
+        x: bottomWeight * bottom.x + a.x,
+        y: sideWeight * side.y + a.y,
     };
 };
 const randomPointInPolygon = (polygon: IObject[], rng: seedrandom.prng): IObject => {
@@ -778,12 +741,13 @@ export interface IGeneratedResources {
  * @param tilePosition The tile position to generate.
  */
 export const generateTerrainTile = (areas: IArea[], tilePosition: ITerrainTilePosition): IGeneratedResources[] => {
-    const diagram = delaunay.Delaunay.from(areas.map(({ x, y }) => [x, y])).voronoi([
+    const terrainTileVoronoiBounds = [
         tilePosition.tileX * terrainTileSize,
         tilePosition.tileY * terrainTileSize,
         (tilePosition.tileX + 1) * terrainTileSize,
         (tilePosition.tileY + 1) * terrainTileSize,
-    ]);
+    ];
+    const diagram = delaunay.Delaunay.from(areas.map(({ x, y }) => [x, y])).voronoi(terrainTileVoronoiBounds);
 
     const areasInTile: IArea[] = [];
     for (let i = 0; i < areas.length; i++) {
@@ -805,14 +769,83 @@ export const generateTerrainTile = (areas: IArea[], tilePosition: ITerrainTilePo
             const numberOfResources = Math.floor(
                 rng.double() * (areaSpawnData.maxResources - areaSpawnData.minResources) + areaSpawnData.minResources,
             );
-            const resources: IResource[] = [];
+
+            // generate initial random points inside the polygon
+            let points: IObject[] = [];
             for (let i = 0; i < numberOfResources; i++) {
                 const point = randomPointInPolygon(area.corners, rng);
+                points.push(point);
+            }
+
+            // space the points out uniformly using lloyd relaxation
+            // notice that the loop below will perform lloyd relaxation within a polygon instead of a rectangular bounding box
+            const areaPolygon: [number, number][][] = [
+                area.corners.map((corner: IObject): [number, number] => {
+                    return [corner.x, corner.y];
+                }),
+            ];
+            for (let step = 0; step < 10; step++) {
+                const voronois: IVoronoi[] = computeVoronoi(points, terrainTileVoronoiBounds);
+                const polygons: [number, number][][][] = voronois.map((voronoi: IVoronoi): [number, number][][] => {
+                    return [
+                        voronoi.corners.map((corner: IObject): [number, number] => {
+                            return [corner.x, corner.y];
+                        }),
+                    ];
+                });
+                const intersectionPolygons: [number, number][][][] = polygons.reduce(
+                    (acc: [number, number][][][], polygon) => {
+                        const intersection = polygonClipping.intersection(polygon, areaPolygon);
+                        if (intersection[0]) {
+                            return [...acc, intersection[0]];
+                        } else {
+                            return acc;
+                        }
+                    },
+                    [],
+                );
+                const clippedVoronois: IVoronoi[] = intersectionPolygons.reduce(
+                    (acc: IVoronoi[], polygon: [number, number][][], i): IVoronoi[] => {
+                        const voronoi = voronois[i];
+                        const outputVoronoi: IVoronoi = {
+                            point: {
+                                ...voronoi.point,
+                            },
+                            corners: polygon[0].map(
+                                (point: [number, number]): IObject => ({
+                                    x: point[0],
+                                    y: point[1],
+                                }),
+                            ),
+                            neighbors: [...voronoi.neighbors],
+                        };
+                        return [...acc, outputVoronoi];
+                    },
+                    [],
+                );
+                points = lloydRelaxation(clippedVoronois);
+            }
+
+            // remove points that are too close together and round to nearest 10
+            points = points.reduce((acc: IObject[], point: IObject): IObject[] => {
+                const roundedPoint: IObject = {
+                    x: Math.floor(point.x / 10) * 10,
+                    y: Math.floor(point.y / 10) * 10,
+                };
+                if (acc.every((other) => distance(roundedPoint, other) >= 100)) {
+                    return [...acc, roundedPoint];
+                } else {
+                    return acc;
+                }
+            }, []);
+
+            const resources: IResource[] = [];
+            for (const point of points) {
                 const spawnChance = rng.quick() * areaSpawnData.cumulativeSum;
                 const spawn = areaSpawnData.cumulativeSpawns.find(
                     (data) => data.probability < spawnChance,
                 ) as ITerrainResourceData;
-                if (spawn && resources.every((r) => distance(point, r) >= 100)) {
+                if (spawn) {
                     const resource: IResource = createResource(point, spawn.objectType);
                     resources.push(resource);
                 }

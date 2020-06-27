@@ -40,17 +40,6 @@ import * as delaunay from 'd3-delaunay';
 expect.extend({ toMatchImageSnapshot });
 
 describe('Terrain', () => {
-    // build a 3 x 3 tile box of everything
-    const tilePositions: ITerrainTilePosition[] = [];
-    for (let tileX = -1; tileX < 2; tileX++) {
-        for (let tileY = -1; tileY < 2; tileY++) {
-            tilePositions.push({
-                tileX,
-                tileY,
-            });
-        }
-    }
-
     const continentRadius = 3;
     const biomeRadius = 6;
     const areaRadius = 12;
@@ -91,15 +80,16 @@ describe('Terrain', () => {
     const areas = areaTilePositions.reduce((acc: IArea[], tilePosition) => {
         return [...acc, ...generateAreaTile(biomes, tilePosition)];
     }, []);
-    const generatedResources = tilePositions.reduce((acc: IGeneratedResources[], tilePosition) => {
-        return [
-            ...acc,
-            ...generateTerrainForLocation(tilePosition, {
-                x: tilePosition.tileX * terrainTileSize,
-                y: tilePosition.tileY * terrainTileSize,
-            }),
-        ];
-    }, []);
+    const generatedResources = generateTerrainForLocation(
+        {
+            tileX: 0,
+            tileY: 0,
+        },
+        {
+            x: 0,
+            y: 0,
+        },
+    );
     const resources = generatedResources.reduce((acc: IResource[], generatedResource) => {
         return [...acc, ...generatedResource.resources];
     }, []);
