@@ -899,12 +899,12 @@ const resourceSpawnData: IResourceSpawnData[] = [
             {
                 type: ENetworkObjectType.STICK,
                 probability: 95,
-                spawnTime: 60000,
+                spawnTime: 120000,
             },
             {
                 type: ENetworkObjectType.WOOD,
                 probability: 5,
-                spawnTime: 60000,
+                spawnTime: 300000,
             },
         ],
     },
@@ -914,17 +914,17 @@ const resourceSpawnData: IResourceSpawnData[] = [
             {
                 type: ENetworkObjectType.STONE,
                 probability: 70,
-                spawnTime: 60000,
+                spawnTime: 120000,
             },
             {
                 type: ENetworkObjectType.COAL,
                 probability: 20,
-                spawnTime: 120000,
+                spawnTime: 240000,
             },
             {
                 type: ENetworkObjectType.IRON,
                 probability: 10,
-                spawnTime: 180000,
+                spawnTime: 240000,
             },
         ],
     },
@@ -934,17 +934,17 @@ const resourceSpawnData: IResourceSpawnData[] = [
             {
                 type: ENetworkObjectType.MUD,
                 probability: 80,
-                spawnTime: 10000,
+                spawnTime: 120000,
             },
             {
                 type: ENetworkObjectType.CLAY,
                 probability: 15,
-                spawnTime: 10000,
+                spawnTime: 180000,
             },
             {
                 type: ENetworkObjectType.REED,
                 probability: 5,
-                spawnTime: 10000,
+                spawnTime: 120000,
             },
         ],
     },

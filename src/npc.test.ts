@@ -1,15 +1,17 @@
 import 'jest';
 import {
-    applyFutureInventoryState,
     applyFutureStateToNetworkObject,
+    applyInventoryState,
     applyPathToNpc,
     applyStateToNetworkObject,
+    applyStateToResource,
     CellController,
 } from './npc';
 import {
     ENetworkObjectType,
     ENpcJobType,
     EOwnerType,
+    ICellLock,
     IHouse,
     INetworkObject,
     INpc,
@@ -20,6 +22,8 @@ import {
     IStockpile,
 } from './types/GameTypes';
 import { createResource } from './terrain';
+import { getNetworkObjectCellString } from './cell';
+import { InventoryController } from './inventory';
 
 const createNpc = (index: number): INpc => ({
     id: `npc${index}`,
@@ -124,6 +128,7 @@ describe('CellController', () => {
             houses,
             objects,
             stockpiles,
+            cellLock: null,
         });
         expect(controller).toBeTruthy();
     });
@@ -132,7 +137,11 @@ describe('CellController', () => {
      * @param milliseconds The number of milliseconds to simulate.
      * @param steps The number of rounds of simulation.
      */
-    const runSimulationForAmountOfTime = (milliseconds: number, steps: number = 1) => {
+    const runSimulationForAmountOfTime = (
+        milliseconds: number,
+        steps: number = 1,
+        cellLock: ICellLock | null = null,
+    ) => {
         let initialNpcs: INpc[] = npcs;
         let initialResources: IResource[] = resources;
         let initialHouses: IHouse[] = houses;
@@ -145,6 +154,7 @@ describe('CellController', () => {
                 houses: initialHouses,
                 objects: initialObjects,
                 stockpiles: initialStockpiles,
+                cellLock,
             });
             controller.run(Math.ceil(milliseconds / steps));
             const stateResult = controller.getState();
@@ -206,6 +216,13 @@ describe('CellController', () => {
         }
     };
     it('should run for 1 minute', () => runSimulationForAmountOfTime(60 * 1000));
+    it('should run for 1 minute and cellLock 30 seconds', () => {
+        const cellLock: ICellLock = {
+            pauseDate: new Date(+new Date() + 30 * 1000).toISOString(),
+            cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+        };
+        runSimulationForAmountOfTime(60 * 1000, 2, cellLock);
+    });
     it('should run for 2 minutes in 2 steps', () => runSimulationForAmountOfTime(2 * 60 * 1000, 2));
     it('should run for 10 minutes', () => runSimulationForAmountOfTime(10 * 60 * 1000));
     it('should run for 1 hour', () => runSimulationForAmountOfTime(60 * 60 * 1000));
@@ -327,6 +344,7 @@ describe('applyStateToNetworkObject', () => {
         };
         expect(applyStateToNetworkObject(initialNetworkObject)).toEqual({
             ...initialNetworkObject,
+            state: [],
             exist: true,
         });
     });
@@ -347,5 +365,170 @@ describe('applyStateToNetworkObject', () => {
             ...initialNetworkObject,
             exist: false,
         });
+    });
+    it('should apply state to networkObject using pauseDate', () => {
+        const time1 = new Date(+new Date() - 10 * 1000).toISOString();
+        const time2 = new Date(+new Date() + 10 * 1000).toISOString();
+        const time3 = new Date(+new Date() + 40 * 1000).toISOString();
+        const time4 = new Date(+new Date() + 60 * 1000).toISOString();
+        const initialNetworkObject: INetworkObject = {
+            ...networkObject,
+            state: [
+                {
+                    time: time1,
+                    state: {
+                        exist: true,
+                    },
+                },
+                {
+                    time: time2,
+                    state: {
+                        exist: false,
+                    },
+                },
+                {
+                    time: time3,
+                    state: {
+                        exist: true,
+                    },
+                },
+                {
+                    time: time4,
+                    state: {
+                        exist: false,
+                    },
+                },
+            ],
+        };
+        expect(applyStateToNetworkObject(initialNetworkObject, new Date(+new Date() + 30 * 1000))).toEqual(
+            expect.objectContaining({
+                exist: true,
+                state: [
+                    {
+                        time: time2,
+                        state: {
+                            exist: false,
+                        },
+                    },
+                ],
+            }),
+        );
+    });
+});
+
+describe('applyStateToResource', () => {
+    it('should apply state to resource using pauseDate', () => {
+        const point: IObject = {
+            x: 0,
+            y: 0,
+        };
+        const time1 = new Date(+new Date() - 10 * 1000).toISOString();
+        const time2 = new Date(+new Date() + 10 * 1000).toISOString();
+        const time3 = new Date(+new Date() + 40 * 1000).toISOString();
+        const time4 = new Date(+new Date() + 60 * 1000).toISOString();
+        const resource: IResource = {
+            ...createResource(point, ENetworkObjectType.TREE),
+            state: [
+                {
+                    time: time1,
+                    state: {
+                        depleted: true,
+                    },
+                },
+                {
+                    time: time2,
+                    state: {
+                        depleted: false,
+                    },
+                },
+                {
+                    time: time3,
+                    state: {
+                        depleted: true,
+                    },
+                },
+                {
+                    time: time4,
+                    state: {
+                        depleted: false,
+                    },
+                },
+            ],
+        };
+        expect(applyStateToResource(resource, new Date(+new Date() + 30 * 1000))).toEqual(
+            expect.objectContaining({
+                depleted: true,
+                state: [
+                    {
+                        time: time2,
+                        state: {
+                            depleted: false,
+                        },
+                    },
+                ],
+            }),
+        );
+    });
+});
+
+describe('applyInventoryState', () => {
+    it('should apply inventory state to npc using pauseDate', () => {
+        const time1 = new Date(+new Date() - 10 * 1000).toISOString();
+        const time2 = new Date(+new Date() + 10 * 1000).toISOString();
+        const time3 = new Date(+new Date() + 40 * 1000).toISOString();
+        const time4 = new Date(+new Date() + 60 * 1000).toISOString();
+        const item1: INetworkObject = {
+            id: 'item1',
+        } as INetworkObject;
+        const item2: INetworkObject = {
+            id: 'item2',
+        } as INetworkObject;
+        const item3: INetworkObject = {
+            id: 'item3',
+        } as INetworkObject;
+        const item4: INetworkObject = {
+            id: 'item4',
+        } as INetworkObject;
+        const npc: INpc = {
+            ...createNpc(1),
+            inventoryState: [
+                {
+                    time: time1,
+                    add: [item1],
+                    remove: [],
+                    modified: [],
+                },
+                {
+                    time: time2,
+                    add: [item2],
+                    remove: [],
+                    modified: [],
+                },
+                {
+                    time: time3,
+                    add: [item3],
+                    remove: [],
+                    modified: [],
+                },
+                {
+                    time: time4,
+                    add: [item4],
+                    remove: [],
+                    modified: [],
+                },
+            ],
+        };
+        expect(applyInventoryState(npc, new Date(+new Date() + 30 * 1000))).toEqual(
+            expect.objectContaining({
+                inventoryState: [
+                    {
+                        time: time2,
+                        add: [item2],
+                        remove: [],
+                        modified: [],
+                    },
+                ],
+            }),
+        );
     });
 });

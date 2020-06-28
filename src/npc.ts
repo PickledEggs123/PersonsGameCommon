@@ -1,5 +1,6 @@
 import {
     ENpcJobType,
+    ICellLock,
     ICraftingRecipe,
     IHouse,
     IInventoryHolder,
@@ -40,6 +41,10 @@ export interface ICellControllerParams {
      * A list of stockpiles near the NPC. NPCs will store and retrieve items from stockpiles.
      */
     stockpiles: IStockpile[];
+    /**
+     * A pause placed on all NPCs within the cell.
+     */
+    cellLock: ICellLock | null;
 }
 
 /**
@@ -187,19 +192,26 @@ export interface ICellFinalState {
 /**
  * Interpolate path data onto the npc position.
  * @param npc The npc with path data.
+ * @param pauseDate The npc cell pause time.
  */
-const internalApplyPathToNpc = (npc: INpc): INpc => {
+const internalApplyPathToNpc = (npc: INpc, pauseDate: Date | null = null): INpc => {
     // get the current time, used to interpolate the npc
     const now = new Date();
 
     // determine if there is path data
     const firstPoint = npc.path[0];
-    if (firstPoint && +now > Date.parse(firstPoint.time)) {
+    const hasHappened = (point: INpcPathPoint): boolean => {
+        return +now >= Date.parse(point.time);
+    };
+    const isPaused = (point: INpcPathPoint): boolean => {
+        return !!pauseDate && Date.parse(point.time) > +pauseDate;
+    };
+    if (firstPoint && hasHappened(firstPoint) && !isPaused(firstPoint)) {
         // there is path information and the path started
 
         // a path is made of an array of points. We want to interpolate two points forming a line segment.
         // find point b in array of points, it's the second point
-        const indexOfPointB = npc.path.findIndex((p) => Date.parse(p.time) > +now);
+        const indexOfPointB = npc.path.findIndex((p) => !hasHappened(p) && !isPaused(p));
         if (indexOfPointB >= 0) {
             // not past last path yet, interpolate point a to point b
             const a = npc.path[indexOfPointB - 1];
@@ -221,7 +233,7 @@ const internalApplyPathToNpc = (npc: INpc): INpc => {
                     ...npc,
                     x,
                     y,
-                    path: [],
+                    path: npc.path.slice(indexOfPointB - 1).filter((p) => !isPaused(p)),
                 };
             } else {
                 // missing points a and b
@@ -256,14 +268,18 @@ const internalApplyPathToNpc = (npc: INpc): INpc => {
  * @param now The current now time to apply inventory state with.
  * @param acc The accumulated inventory holder.
  * @param inventoryState The inventory state event to apply.
+ * @param pauseDate The date where all automated npc actions will stop being executed.
  */
 const internalApplyOneInventoryState = <T extends INpc | IStockpile>(
     all: boolean,
     now: Date,
     acc: T,
     inventoryState: IInventoryState,
+    pauseDate: Date | null = null,
 ): T => {
-    if (all || +now >= Date.parse(inventoryState.time)) {
+    const hasHappened = +now >= Date.parse(inventoryState.time);
+    const isPaused = !!pauseDate && Date.parse(inventoryState.time) > +pauseDate;
+    if (all || (hasHappened && !isPaused)) {
         return {
             ...acc,
             inventory: {
@@ -291,7 +307,10 @@ const internalApplyOneInventoryState = <T extends INpc | IStockpile>(
             },
         };
     } else {
-        return acc;
+        return {
+            ...acc,
+            inventoryState: !hasHappened && !isPaused ? [...acc.inventoryState, inventoryState] : acc.inventoryState,
+        };
     }
 };
 
@@ -301,13 +320,24 @@ const internalApplyOneInventoryState = <T extends INpc | IStockpile>(
  * list of inventory states is required to smoothly interpolate npc data in between the large npc logic tick
  * and page refresh.
  * @param npc The npc with inventory state to interpolate.
- * @param all
+ * @param all All future actions should be interpolated.
+ * @param pauseDate The date where future actions stop being interpolated.
  */
-const internalApplyInventoryState = <T extends INpc | IStockpile>(npc: T, all: boolean): T => {
+const internalApplyInventoryState = <T extends INpc | IStockpile>(
+    npc: T,
+    all: boolean,
+    pauseDate: Date | null = null,
+): T => {
     const now = new Date();
-    return npc.inventoryState.reduce((acc: T, inventoryState: IInventoryState): T => {
-        return internalApplyOneInventoryState(all, now, acc, inventoryState);
-    }, npc);
+    return npc.inventoryState.reduce(
+        (acc: T, inventoryState: IInventoryState): T => {
+            return internalApplyOneInventoryState(all, now, acc, inventoryState, pauseDate);
+        },
+        {
+            ...npc,
+            inventoryState: [],
+        },
+    );
 };
 
 /**
@@ -316,13 +346,10 @@ const internalApplyInventoryState = <T extends INpc | IStockpile>(npc: T, all: b
  * list of inventory states is required to smoothly interpolate npc data in between the large npc logic tick
  * and page refresh.
  * @param npc The npc with inventory state to interpolate.
+ * @param pauseDate The date that the object is paused, no further automated actions.
  */
-export const applyInventoryState = <T extends INpc | IStockpile>(npc: T): T => {
-    const finalState = internalApplyInventoryState(npc, false);
-    return {
-        ...finalState,
-        inventoryState: [],
-    };
+export const applyInventoryState = <T extends INpc | IStockpile>(npc: T, pauseDate: Date | null = null): T => {
+    return internalApplyInventoryState(npc, false, pauseDate);
 };
 
 export const applyFutureInventoryState = <T extends INpc | IStockpile>(npc: T): T => {
@@ -338,41 +365,52 @@ export const applyOneInventoryState = <T extends INpc | IStockpile>(npc: T, inve
 /**
  * Interpolate npc data.
  * @param npc The npc to interpolate to current time, now.
+ * @param pauseDate The cell pause time of the npc.
  */
-export const applyPathToNpc = (npc: INpc): INpc => {
-    return internalApplyPathToNpc(applyInventoryState(npc));
+export const applyPathToNpc = (npc: INpc, pauseDate: Date | null = null): INpc => {
+    return internalApplyPathToNpc(applyInventoryState(npc, pauseDate), pauseDate);
 };
 
 export const internalApplyStateToNetworkObject = (
     networkObject: INetworkObject,
     all: boolean = false,
+    pauseDate: Date | null = null,
 ): INetworkObject => {
     const now = +new Date();
-    const finalState = networkObject.state.reduce(
+    return networkObject.state.reduce(
         (acc: INetworkObject, state: INetworkObjectState<INetworkObject>): INetworkObject => {
-            if (all || now >= Date.parse(state.time)) {
+            const hasHappened = now >= Date.parse(state.time);
+            const isPaused = !!pauseDate && Date.parse(state.time) > +pauseDate;
+            if (all || (hasHappened && !isPaused)) {
                 return {
                     ...acc,
                     ...state.state,
                 };
             } else {
-                return acc;
+                return {
+                    ...acc,
+                    state: !hasHappened && !isPaused ? [...acc.state, state] : acc.state,
+                };
             }
         },
-        networkObject,
+        {
+            ...networkObject,
+            state: [],
+        },
     );
-    return {
-        ...finalState,
-    };
 };
 
 /**
  * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
  * over time. The UI can update the object using the object information without having to receive network updates.
  * @param networkObject The object containing state updates.
+ * @param pauseDate The time that the cell is paused for the current simulation.
  */
-export const applyStateToNetworkObject = (networkObject: INetworkObject): INetworkObject => {
-    return internalApplyStateToNetworkObject(networkObject, false);
+export const applyStateToNetworkObject = (
+    networkObject: INetworkObject,
+    pauseDate: Date | null = null,
+): INetworkObject => {
+    return internalApplyStateToNetworkObject(networkObject, false, pauseDate);
 };
 
 /**
@@ -389,23 +427,31 @@ export const applyFutureStateToNetworkObject = (networkObject: INetworkObject): 
  * Apply the interpolated state updates onto the network object. An object can be loaded with multiple state changes
  * over time. The UI can update the object using the object information without having to receive network updates.
  * @param resource The object containing state updates.
+ * @param pauseDate The pause time of the cell the resource is in. ALl NPC actions should stop.
  */
-export const applyStateToResource = (resource: IResource): IResource => {
+export const applyStateToResource = (resource: IResource, pauseDate: Date | null = null): IResource => {
     const now = +new Date();
-    const finalState = resource.state.reduce((acc: IResource, state: INetworkObjectState<IResource>): IResource => {
-        if (now >= Date.parse(state.time)) {
-            return {
-                ...acc,
-                ...state.state,
-            };
-        } else {
-            return acc;
-        }
-    }, resource);
-    return {
-        ...finalState,
-        state: [],
-    };
+    return resource.state.reduce(
+        (acc: IResource, state: INetworkObjectState<IResource>): IResource => {
+            const hasHappened = now >= Date.parse(state.time);
+            const isPaused = !!pauseDate && Date.parse(state.time) > +pauseDate;
+            if (hasHappened && !isPaused) {
+                return {
+                    ...acc,
+                    ...state.state,
+                };
+            } else {
+                return {
+                    ...acc,
+                    state: !hasHappened && !isPaused ? [...acc.state, state] : acc.state,
+                };
+            }
+        },
+        {
+            ...resource,
+            state: [],
+        },
+    );
 };
 
 export class CellController {
@@ -429,6 +475,13 @@ export class CellController {
      * The initial list of stockpiles.
      */
     private stockpiles: { [id: string]: IStockpile };
+    /**
+     * An optional cell lock object. A player which changed something in the cell
+     * will generate a cell lock object which will pause all npc actions within
+     * the cell. Passing the cell lock to the CellController will resume the
+     * npcs from the last cell lock pause.
+     */
+    private cellLock: ICellLock | null;
 
     /**
      * The state of the cell run.
@@ -453,17 +506,18 @@ export class CellController {
      */
     private currentMilliseconds: number;
 
-    constructor({ npcs, resources, houses, objects, stockpiles }: ICellControllerParams) {
+    constructor({ npcs, resources, houses, objects, stockpiles, cellLock }: ICellControllerParams) {
+        const pauseDate: Date | null = cellLock ? new Date(Date.parse(cellLock.pauseDate)) : null;
         this.npcs = npcs.reduce((acc: { [id: string]: INpc }, npc) => {
             return {
                 ...acc,
-                [npc.id]: applyPathToNpc(npc),
+                [npc.id]: applyPathToNpc(npc, pauseDate),
             };
         }, {});
         this.resources = resources.reduce((acc: { [id: string]: IResource }, resource) => {
             return {
                 ...acc,
-                [resource.id]: applyStateToResource(resource),
+                [resource.id]: applyStateToResource(resource, pauseDate),
             };
         }, {});
         this.houses = houses.reduce((acc: { [id: string]: IHouse }, house) => {
@@ -477,15 +531,16 @@ export class CellController {
         this.objects = objects.reduce((acc: { [id: string]: INetworkObject }, obj) => {
             return {
                 ...acc,
-                [obj.id]: applyStateToNetworkObject(obj),
+                [obj.id]: applyStateToNetworkObject(obj, pauseDate),
             };
         }, {});
         this.stockpiles = stockpiles.reduce((acc: { [id: string]: IStockpile }, obj) => {
             return {
                 ...acc,
-                [obj.id]: applyInventoryState(obj),
+                [obj.id]: applyInventoryState(obj, pauseDate),
             };
         }, {});
+        this.cellLock = cellLock;
 
         this.startTime = new Date();
         this.currentMilliseconds = 0;
@@ -495,19 +550,20 @@ export class CellController {
      * Load the initial state of the simulation.
      */
     private setupState() {
+        const pauseDate = this.cellLock ? new Date(Date.parse(this.cellLock.pauseDate)) : null;
         this.state = {
             npcs: Object.values(this.npcs).map((npc) => {
                 return {
                     readyTime: new Date(Date.parse(npc.readyTime)),
-                    data: applyPathToNpc(npc),
+                    data: applyPathToNpc(npc, pauseDate),
                 };
             }),
-            resources: Object.values(this.resources).map((resource) => applyStateToResource(resource)),
+            resources: Object.values(this.resources).map((resource) => applyStateToResource(resource, pauseDate)),
             spawns: [],
             resourceEvents: {},
             networkObjectEvents: {},
             npcInventoryEvents: {},
-            stockpiles: Object.values(this.stockpiles).map((stockpile) => applyInventoryState(stockpile)),
+            stockpiles: Object.values(this.stockpiles).map((stockpile) => applyInventoryState(stockpile, pauseDate)),
             stockpileInventoryEvents: {},
         };
         this.startTime = new Date();

@@ -939,6 +939,21 @@ export interface INetworkObjectCellPosition {
 }
 
 /**
+ * Stop all npc actions within a cell for a moment in time while a player changes
+ * things within the cell.
+ */
+export interface ICellLock {
+    /**
+     * The time that the cell will be paused, no further npc actions.
+     */
+    pauseDate: string;
+    /**
+     * The cell id that was paused.
+     */
+    cell: string;
+}
+
+/**
  * The HTTP GET /persons response.
  */
 export interface IApiPersonsGetResponse {
@@ -952,6 +967,7 @@ export interface IApiPersonsGetResponse {
     currentNpcId: string | null;
     loadedCells: INetworkObjectCellPosition[];
     loadedTerrainTiles: ITerrainTilePosition[];
+    cellLocks: ICellLock[];
     persons: IPerson[];
     npcs: INpc[];
     cars: ICar[];
