@@ -553,9 +553,19 @@ export class CellController {
         const pauseDate = this.cellLock ? new Date(Date.parse(this.cellLock.pauseDate)) : null;
         this.state = {
             npcs: Object.values(this.npcs).map((npc) => {
+                const data = applyPathToNpc(npc, pauseDate);
+                let readyTime: Date = new Date(Date.parse(npc.readyTime));
+                if (pauseDate) {
+                    const lastNpcPoint: INpcPathPoint | null = data.path[data.path.length - 1] || null;
+                    if (lastNpcPoint) {
+                        readyTime = new Date(Date.parse(lastNpcPoint.time));
+                    } else {
+                        readyTime = pauseDate;
+                    }
+                }
                 return {
-                    readyTime: new Date(Date.parse(npc.readyTime)),
-                    data: applyPathToNpc(npc, pauseDate),
+                    readyTime,
+                    data,
                 };
             }),
             resources: Object.values(this.resources).map((resource) => applyStateToResource(resource, pauseDate)),
