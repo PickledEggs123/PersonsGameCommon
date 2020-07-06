@@ -1,6 +1,7 @@
 import 'jest';
 import { getMaxStackSize, InventoryController, listOfRecipes } from './inventory';
 import { ENetworkObjectType, ICraftingRecipe, INetworkObject, IPerson, IStockpile } from './types/GameTypes';
+import { getNetworkObjectCellString } from './cell';
 
 describe('InventoryController', () => {
     const person: IPerson = {
@@ -26,6 +27,7 @@ describe('InventoryController', () => {
         },
         craftingSeed: 'craftingSeed',
         craftingState: true,
+        cell: getNetworkObjectCellString({ x: 0, y: 0 }),
     };
 
     it('should create inventory controller', () => {
@@ -56,6 +58,7 @@ describe('InventoryController', () => {
             amount: 1,
             exist: true,
             state: [],
+            cell: getNetworkObjectCellString({ x: 0, y: 0 }),
         };
     };
     /**

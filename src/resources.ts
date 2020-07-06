@@ -1,5 +1,6 @@
-import { IApiPersonsResourceHarvestPost, INetworkObject, IResource, IResourceSpawn } from './types/GameTypes';
+import { IApiPersonsResourceHarvestPost, INetworkObject, IObject, IResource, IResourceSpawn } from './types/GameTypes';
 import * as seedrandom from 'seedrandom';
+import { getNetworkObjectCellString } from './cell';
 
 /**
  * The return of the spawn function of HarvestResourceController.
@@ -93,10 +94,14 @@ export class HarvestResourceController {
         const spawn: IResourceSpawn = this.spawnsCumulativeProbability.find(
             (s) => s.probability < cumulativeProbability,
         ) as IResourceSpawn;
-        // add new wood on the ground
-        const spawnItem: INetworkObject = {
+        const spawnPosition: IObject = {
             x: this.resource.x + Math.floor(this.rng.quick() * 200) - 100,
             y: this.resource.y + Math.floor(this.rng.quick() * 200) - 100,
+        };
+        // add new wood on the ground
+        const spawnItem: INetworkObject = {
+            x: spawnPosition.x,
+            y: spawnPosition.y,
             objectType: spawn.type,
             lastUpdate: new Date().toISOString(),
             health: {
@@ -112,6 +117,7 @@ export class HarvestResourceController {
             amount: 1,
             exist: true,
             state: [],
+            cell: getNetworkObjectCellString(spawnPosition),
         };
         // calculate respawn time, should be from 0.5 to 1.5 times the value in milliseconds.
         const respawnTime = Math.ceil(this.rng.quick() * spawn.spawnTime + spawn.spawnTime * 0.5);

@@ -7,6 +7,7 @@ import {
     IStockpile,
     IStockpileTile,
 } from './types/GameTypes';
+import { getNetworkObjectCellString } from './cell';
 
 /**
  * Data needed to setup the stockpile controller.
@@ -92,6 +93,7 @@ export class StockpileController {
             craftingSeed: stockpileId,
             craftingState: true,
             inventoryState: [],
+            cell: getNetworkObjectCellString(location),
         };
     }
 
@@ -116,6 +118,7 @@ export class StockpileController {
                 value: 1,
             },
             stockpileIndex: 0,
+            cell: getNetworkObjectCellString(location),
         };
     }
 

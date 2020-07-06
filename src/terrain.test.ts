@@ -14,7 +14,6 @@ import {
     getBiomeTilePosition,
     getContinentTilePosition,
     getTerrainTilePosition,
-    IGeneratedResources,
     terrainTileSize,
     terrainTileToId,
 } from './terrain';
@@ -30,7 +29,6 @@ import {
     IContinentTilePosition,
     IObject,
     IResource,
-    ITerrainTilePosition,
 } from './types/GameTypes';
 import * as canvas from 'canvas';
 import * as fs from 'fs';

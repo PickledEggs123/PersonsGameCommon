@@ -22,6 +22,7 @@ import * as d3Polygon from 'd3-polygon';
 import * as seedrandom from 'seedrandom';
 import * as shajs from 'sha.js';
 import * as polygonClipping from 'polygon-clipping';
+import { getNetworkObjectCellString } from './cell';
 
 const mapHash = '11';
 export const terrainTileSize = 1000;
@@ -971,6 +972,7 @@ export const createResource = (point: IObject, objectType: ENetworkObjectType): 
         readyTime: new Date().toISOString(),
         spawnState: true,
         state: [],
+        cell: getNetworkObjectCellString({ x, y }),
     };
     if (objectType === ENetworkObjectType.TREE) {
         const tree: ITree = {

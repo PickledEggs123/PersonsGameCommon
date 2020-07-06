@@ -2,6 +2,7 @@ import 'jest';
 import { ENetworkObjectType, IObject, IPerson } from './types/GameTypes';
 import { ConstructionController } from './construction';
 import { InventoryController } from './inventory';
+import { getNetworkObjectCellString } from './cell';
 
 describe('Construction Controller', () => {
     const person: IPerson = {
@@ -27,6 +28,7 @@ describe('Construction Controller', () => {
         },
         craftingSeed: 'craftingSeed',
         craftingState: true,
+        cell: getNetworkObjectCellString({ x: 0, y: 0 }),
     };
 
     it('should create construction controller', () => {

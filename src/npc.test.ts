@@ -8,6 +8,7 @@ import {
     CellController,
 } from './npc';
 import {
+    EBuildingDesignation,
     ENetworkObjectType,
     ENpcJobType,
     EOwnerType,
@@ -23,7 +24,6 @@ import {
 } from './types/GameTypes';
 import { createResource } from './terrain';
 import { getNetworkObjectCellString } from './cell';
-import { InventoryController } from './inventory';
 
 const createNpc = (index: number): INpc => ({
     id: `npc${index}`,
@@ -61,6 +61,7 @@ const createNpc = (index: number): INpc => ({
             : {
                   type: ENpcJobType.GATHER,
               },
+    cell: getNetworkObjectCellString({ x: 0, y: 0 }),
 });
 
 describe('CellController', () => {
@@ -80,6 +81,8 @@ describe('CellController', () => {
                 max: 1,
                 value: 1,
             },
+            cell: getNetworkObjectCellString({ x: index * 100, y: 0 }),
+            buildingDesignation: EBuildingDesignation.HOUSE,
         }),
     );
     const resources: IResource[] = new Array(10).fill(0).reduce((acc, v, x) => {
@@ -118,6 +121,8 @@ describe('CellController', () => {
                 max: 1,
                 value: 1,
             },
+            cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+            acceptedNetworkObjectGroups: [],
         },
     ];
     const objects: INetworkObject[] = [];
@@ -276,8 +281,8 @@ describe('applyPathToNpc', () => {
             y: 0,
         };
         const finalNpc = applyPathToNpc(npc);
-        expect(finalNpc.x).toBeCloseTo(expectedPosition.x, 0);
-        expect(finalNpc.y).toBeCloseTo(expectedPosition.y, 0);
+        expect(finalNpc.x).toBeCloseTo(expectedPosition.x, -1);
+        expect(finalNpc.y).toBeCloseTo(expectedPosition.y, -1);
     });
     it('should handle line segment (end of line segment)', () => {
         const npc = createNpc(1);
@@ -325,6 +330,7 @@ describe('applyStateToNetworkObject', () => {
             value: 1,
         },
         state: [],
+        cell: getNetworkObjectCellString({ x: 0, y: 0 }),
     };
     it('should handle no state changes', () => {
         expect(applyStateToNetworkObject(networkObject)).toEqual(networkObject);

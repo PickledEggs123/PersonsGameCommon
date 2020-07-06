@@ -15,6 +15,7 @@ import {
     IStockpile,
 } from './types/GameTypes';
 import * as seedrandom from 'seedrandom';
+import { getNetworkObjectCellString } from './cell';
 
 /**
  * When performing a pickup, drop, or craft, it will affect multiple objects.
@@ -587,6 +588,7 @@ export class InventoryController<T extends IInventoryHolder> {
             },
             exist: true,
             state: [],
+            cell: getNetworkObjectCellString(this.inventoryHolder),
         };
     }
 

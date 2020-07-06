@@ -1,6 +1,5 @@
 import * as seedrandom from 'seedrandom';
 import { TDayNightTime } from './time';
-import { prng } from 'seedrandom';
 
 /**
  * The base interface for all game objects.
@@ -48,16 +47,21 @@ export enum ENetworkObjectType {
     /**
      * Agriculture objects.
      */
+    PLOT = 'PLOT',
     WHEAT = 'WHEAT',
+    FLOUR = 'FLOUR',
+    BREAD = 'BREAD',
     CORN = 'CORN',
     RICE = 'RICE',
     HOE = 'HOE',
     SEED = 'SEED',
     CHICKEN = 'CHICKEN',
+    EGG = 'EGG',
     COW = 'COW',
+    MILK = 'MILK',
+    CHEESE = 'CHEESE',
     PIG = 'PIG',
     FISH = 'FISH',
-    FLOUR = 'FLOUR',
     MEAT = 'MEAT',
     /**
      * Mining objects.
@@ -73,11 +77,297 @@ export enum ENetworkObjectType {
     OIL = 'OIL',
     GAS_WELL = 'GAS_WELL',
     PROPANE = 'PROPANE',
+    HELIUM = 'HELIUM',
     /**
      * Construction objects.
      */
     WATTLE_WALL = 'WATTLE_WALL',
+    TWO_BY_FOUR = 'TWO_BY_FOUR',
+    PLANK = 'PLANK',
+    BRICK = 'BRICK',
 }
+
+/**
+ * The grouping of object types.
+ */
+export enum ENetworkObjectGroup {
+    NATURAL_RESOURCE = 'NATURAL_RESOURCE',
+    BUILDING = 'BUILDING',
+    PERSON = 'PERSON',
+    FURNITURE = 'FURNITURE',
+    STORAGE = 'STORAGE',
+    VEHICLE = 'VEHICLE',
+    TOOL = 'TOOL',
+    ANIMAL = 'ANIMAL',
+    /**
+     * The item is a raw resource. Only allow raw resource into the stockpile.
+     */
+    RESOURCE = 'RESOURCE',
+    /**
+     * The item is food. It can be eaten. Only allow food into the stockpile.
+     */
+    FOOD = 'FOOD',
+    /**
+     * The item is construction material. Only allow construction material into
+     * the stockpile.
+     */
+    CONSTRUCTION = 'CONSTRUCTION',
+}
+
+export interface INetworkObjectTypeData {
+    group: ENetworkObjectGroup;
+    name: string;
+    description: string;
+}
+const networkObjectTypeData: { [type: string]: INetworkObjectTypeData } = {
+    [ENetworkObjectType.STOCKPILE]: {
+        group: ENetworkObjectGroup.BUILDING,
+        name: 'Stockpile',
+        description: 'Store items in bulk.',
+    },
+    [ENetworkObjectType.PERSON]: {
+        group: ENetworkObjectGroup.PERSON,
+        name: 'Person',
+        description: 'Able to perform work',
+    },
+    [ENetworkObjectType.CHAIR]: {
+        group: ENetworkObjectGroup.FURNITURE,
+        name: 'Chair',
+        description: 'Used for relaxing',
+    },
+    [ENetworkObjectType.TABLE]: {
+        group: ENetworkObjectGroup.FURNITURE,
+        name: 'Table',
+        description: 'Used for placing small items onto and eating',
+    },
+    [ENetworkObjectType.BOX]: {
+        group: ENetworkObjectGroup.STORAGE,
+        name: 'Box',
+        description: 'Used for storing small items',
+    },
+    [ENetworkObjectType.CAR]: {
+        group: ENetworkObjectGroup.VEHICLE,
+        name: 'Car',
+        description: 'Used for traveling faster',
+    },
+    [ENetworkObjectType.VENDING_MACHINE]: {
+        group: ENetworkObjectGroup.FURNITURE,
+        name: 'Vending Machine',
+        description: 'Used for selling items',
+    },
+    [ENetworkObjectType.TREE]: {
+        group: ENetworkObjectGroup.NATURAL_RESOURCE,
+        name: 'Tree',
+        description: 'Used for gathering wood',
+    },
+    [ENetworkObjectType.STICK]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Stick',
+        description: 'Used for producing stick houses and fire',
+    },
+    [ENetworkObjectType.WOOD]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Wood',
+        description: 'Used for producing furniture and more expensive housing',
+    },
+    [ENetworkObjectType.AXE]: {
+        group: ENetworkObjectGroup.TOOL,
+        name: 'Axe',
+        description: 'Used for harvesting wood from trees',
+    },
+    [ENetworkObjectType.CHAINSAW]: {
+        group: ENetworkObjectGroup.TOOL,
+        name: 'Chainsaw',
+        description: 'Used for harvesting more wood faster',
+    },
+    [ENetworkObjectType.POND]: {
+        group: ENetworkObjectGroup.NATURAL_RESOURCE,
+        name: 'Pond',
+        description: 'Used for harvesting mud and clay for bricks',
+    },
+    [ENetworkObjectType.MUD]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Mud',
+        description: 'Used for filling in stick walls and producing cheap bricks',
+    },
+    [ENetworkObjectType.CLAY]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Clay',
+        description: 'Used for producing pottery',
+    },
+    [ENetworkObjectType.REED]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Reed',
+        description: 'Used for producing baskets',
+    },
+    [ENetworkObjectType.PLOT]: {
+        group: ENetworkObjectGroup.BUILDING,
+        name: 'Plot',
+        description: 'Used for producing food',
+    },
+    [ENetworkObjectType.WHEAT]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Wheat',
+        description: 'Used for producing bread',
+    },
+    [ENetworkObjectType.CORN]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Corn',
+        description: 'Used for eating',
+    },
+    [ENetworkObjectType.FLOUR]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Flour',
+        description: 'Used for producing bread and soup',
+    },
+    [ENetworkObjectType.BREAD]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Bread',
+        description: 'Used for eating',
+    },
+    [ENetworkObjectType.RICE]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Rice',
+        description: 'Used for eating',
+    },
+    [ENetworkObjectType.HOE]: {
+        group: ENetworkObjectGroup.TOOL,
+        name: 'Hoe',
+        description: 'Used for plowing plots for farming',
+    },
+    [ENetworkObjectType.SEED]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Seed',
+        description: 'Used for producing plants',
+    },
+    [ENetworkObjectType.CHICKEN]: {
+        group: ENetworkObjectGroup.ANIMAL,
+        name: 'Chicken',
+        description: 'Used for meat and eggs',
+    },
+    [ENetworkObjectType.EGG]: {
+        group: ENetworkObjectGroup.FOOD,
+        name: 'Egg',
+        description: 'Used for eating',
+    },
+    [ENetworkObjectType.COW]: {
+        group: ENetworkObjectGroup.ANIMAL,
+        name: 'Cow',
+        description: 'Used for meat and milk',
+    },
+    [ENetworkObjectType.MILK]: {
+        group: ENetworkObjectGroup.FOOD,
+        name: 'Milk',
+        description: 'Used for eating and cheese',
+    },
+    [ENetworkObjectType.CHEESE]: {
+        group: ENetworkObjectGroup.FOOD,
+        name: 'Cheese',
+        description: 'Used for eating',
+    },
+    [ENetworkObjectType.PIG]: {
+        group: ENetworkObjectGroup.ANIMAL,
+        name: 'Pig',
+        description: 'Used for meat',
+    },
+    [ENetworkObjectType.FISH]: {
+        group: ENetworkObjectGroup.ANIMAL,
+        name: 'Fish',
+        description: 'Used for meat',
+    },
+    [ENetworkObjectType.MEAT]: {
+        group: ENetworkObjectGroup.FOOD,
+        name: 'Meat',
+        description: 'Used for eating',
+    },
+    [ENetworkObjectType.ROCK]: {
+        group: ENetworkObjectGroup.NATURAL_RESOURCE,
+        name: 'Rock',
+        description: 'Used for producing stone and ore',
+    },
+    [ENetworkObjectType.STONE]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Stone',
+        description: 'Used for producing tools',
+    },
+    [ENetworkObjectType.IRON]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Iron',
+        description: 'Used for producing advanced tools',
+    },
+    [ENetworkObjectType.COAL]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Coal',
+        description: 'Used for producing advanced tools',
+    },
+    [ENetworkObjectType.PUMP_JACK]: {
+        group: ENetworkObjectGroup.BUILDING,
+        name: 'Pump Jack',
+        description: 'Used for drilling oil',
+    },
+    [ENetworkObjectType.OIL]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Oil',
+        description: 'Used for producing advanced materials',
+    },
+    [ENetworkObjectType.GAS_WELL]: {
+        group: ENetworkObjectGroup.BUILDING,
+        name: 'Gas Well',
+        description: 'Used for producing propane and helium',
+    },
+    [ENetworkObjectType.PROPANE]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Propane',
+        description: 'Used for cooking',
+    },
+    [ENetworkObjectType.HELIUM]: {
+        group: ENetworkObjectGroup.RESOURCE,
+        name: 'Helium',
+        description: 'Used for inflatable objects',
+    },
+    [ENetworkObjectType.WATTLE_WALL]: {
+        group: ENetworkObjectGroup.CONSTRUCTION,
+        name: 'Wattle',
+        description: 'Used for producing mud huts',
+    },
+    [ENetworkObjectType.TWO_BY_FOUR]: {
+        group: ENetworkObjectGroup.CONSTRUCTION,
+        name: '2x4',
+        description: 'Used for producing wooden house frames',
+    },
+    [ENetworkObjectType.PLANK]: {
+        group: ENetworkObjectGroup.CONSTRUCTION,
+        name: 'Plank',
+        description: 'Used for producing wooden floors and walls',
+    },
+    [ENetworkObjectType.BRICK]: {
+        group: ENetworkObjectGroup.CONSTRUCTION,
+        name: 'Brick',
+        description: 'Used for producing brick houses',
+    },
+};
+
+export const getNetworkObjectTypeGroup = (type: ENetworkObjectType): ENetworkObjectGroup => {
+    if (networkObjectTypeData[type]) {
+        return networkObjectTypeData[type].group;
+    } else {
+        throw new Error('No data for ENetworkObjectType');
+    }
+};
+export const getNetworkObjectTypeName = (type: ENetworkObjectType): string => {
+    if (networkObjectTypeData[type]) {
+        return networkObjectTypeData[type].name;
+    } else {
+        throw new Error('No data for ENetworkObjectType');
+    }
+};
+export const getNetworkObjectTypeDescription = (type: ENetworkObjectType): string => {
+    if (networkObjectTypeData[type]) {
+        return networkObjectTypeData[type].description;
+    } else {
+        throw new Error('No data for ENetworkObjectType');
+    }
+};
 
 /**
  * Contains all health related information for an object.
@@ -127,6 +417,12 @@ export interface INetworkObjectBase extends IObject {
      * Contains the health related information of the object.
      */
     health: IObjectHealth;
+    /**
+     * The cell position id of the object. Each object is divided into cells
+     * for quicker database lookups. Instead of searching all possible objects,
+     * you can filter only objects that match a specific cell id.
+     */
+    cell: string;
 }
 
 export interface INetworkObject extends INetworkObjectBase {
@@ -447,6 +743,29 @@ export interface IOwner {
 }
 
 /**
+ * The type of building. Different buildings will produce different jobs.
+ */
+export enum EBuildingDesignation {
+    /**
+     * The building is a home of an npc. The npc will perform basic tasks such
+     * as gathering, basic crafting, and hauling materials.
+     */
+    HOUSE = 'HOUSE',
+    /**
+     * The building is a trade depot which will post items within nearby stockpiles
+     * for sale. Trade depot will have large ranges, it can access stockpiles within
+     * a 3 cell radius or 1 minute walking radius. It will sell to other trade
+     * depots within a 15 cell radius or 5 minute walking radius.
+     */
+    TRADE_DEPOT = 'TRADE_DEPOT',
+    /**
+     * The building will contain advanced tools used for producing items. It will
+     * access stockpiles within the same cell to craft items using machines.
+     */
+    FACTORY = 'FACTORY',
+}
+
+/**
  * Houses provide a location for NPCs to store things, work from, and sleep.
  */
 export interface IHouse extends INetworkObjectBase, IOwner {
@@ -454,6 +773,10 @@ export interface IHouse extends INetworkObjectBase, IOwner {
      * The npc id of the NPC that lives in the house.
      */
     npcId: string;
+    /**
+     * The type of building.
+     */
+    buildingDesignation: EBuildingDesignation;
 }
 
 /**
@@ -472,6 +795,10 @@ export interface IStockpile extends INetworkObjectBase, IOwner, IInventoryHolder
      * The state changes of the inventory over time.
      */
     inventoryState: IInventoryState[];
+    /**
+     * A list of accepted item groups within the stockpile.
+     */
+    acceptedNetworkObjectGroups: ENetworkObjectGroup[];
 }
 
 /**

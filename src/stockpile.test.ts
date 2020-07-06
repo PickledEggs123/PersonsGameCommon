@@ -2,6 +2,7 @@ import 'jest';
 import { ENetworkObjectType, IObject, IPerson } from './types/GameTypes';
 import { StockpileController } from './stockpile';
 import { getMaxStackSize, InventoryController } from './inventory';
+import { getNetworkObjectCellString } from './cell';
 
 describe('Stockpile Controller', () => {
     const person: IPerson = {
@@ -27,6 +28,7 @@ describe('Stockpile Controller', () => {
         },
         craftingSeed: 'craftingSeed',
         craftingState: true,
+        cell: getNetworkObjectCellString({ x: 0, y: 0 }),
     };
 
     it('should create stockpile controller', () => {

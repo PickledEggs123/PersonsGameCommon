@@ -1,4 +1,5 @@
 import {
+    EBuildingDesignation,
     EFloorPattern,
     ENetworkObjectType,
     EOwnerType,
@@ -14,6 +15,7 @@ import {
     IWall,
 } from './types/GameTypes';
 import { InventoryController } from './inventory';
+import { getNetworkObjectCellString } from './cell';
 
 /**
  * Data needed to setup the construction controller.
@@ -103,6 +105,8 @@ export class ConstructionController<T extends IInventoryHolder> {
             },
             lastUpdate: new Date().toISOString(),
             npcId: this.inventoryController.getHouseId(),
+            cell: getNetworkObjectCellString(location),
+            buildingDesignation: EBuildingDesignation.HOUSE,
         };
     }
 
@@ -127,6 +131,7 @@ export class ConstructionController<T extends IInventoryHolder> {
                 rate: 0,
                 value: 1,
             },
+            cell: getNetworkObjectCellString(l),
         };
     }
 
@@ -151,6 +156,7 @@ export class ConstructionController<T extends IInventoryHolder> {
                 rate: 0,
                 value: 1,
             },
+            cell: getNetworkObjectCellString(location),
         };
     }
 
