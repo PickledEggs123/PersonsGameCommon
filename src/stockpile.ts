@@ -94,6 +94,7 @@ export class StockpileController {
             craftingState: true,
             inventoryState: [],
             cell: getNetworkObjectCellString(location),
+            acceptedNetworkObjectGroups: [],
         };
     }
 
