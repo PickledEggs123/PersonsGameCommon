@@ -1116,7 +1116,7 @@ export class CellController {
                 return {
                     ...applyStateToNetworkObject(obj),
                     state,
-                    lastUpdate: new Date().toISOString(),
+                    lastUpdate: state.length > 0 ? new Date().toISOString() : obj.lastUpdate,
                 };
             }),
         ];
