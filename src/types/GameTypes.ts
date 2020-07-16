@@ -560,6 +560,10 @@ export interface IResource extends INetworkObjectBase {
      * A list of state changes on the object through time.
      */
     state: INetworkObjectState<IResource>[];
+    /**
+     * The terrain tile the resource is located within.
+     */
+    terrainTile: string;
 }
 
 /**

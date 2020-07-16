@@ -973,6 +973,7 @@ export const createResource = (point: IObject, objectType: ENetworkObjectType): 
         spawnState: true,
         state: [],
         cell: getNetworkObjectCellString({ x, y }),
+        terrainTile: terrainTileToId(getTerrainTilePosition({ x, y })),
     };
     if (objectType === ENetworkObjectType.TREE) {
         const tree: ITree = {
