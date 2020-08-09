@@ -1325,6 +1325,15 @@ export interface ICellLock {
      */
     pauseDate: string;
     /**
+     * The cell is locked by a cloud function.
+     */
+    lock: boolean;
+    /**
+     * The cell was edited by a player and a cloud function has not locked the
+     * cell yet.
+     */
+    playerEdit: boolean;
+    /**
      * The cell id that was paused.
      */
     cell: string;
