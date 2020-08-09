@@ -28,6 +28,7 @@ describe('InventoryController', () => {
         craftingSeed: 'craftingSeed',
         craftingState: true,
         cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+        version: 0,
     };
 
     it('should create inventory controller', () => {
@@ -59,6 +60,7 @@ describe('InventoryController', () => {
             exist: true,
             state: [],
             cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+            version: 0,
         };
     };
     /**

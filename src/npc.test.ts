@@ -62,6 +62,7 @@ const createNpc = (index: number): INpc => ({
                   type: ENpcJobType.GATHER,
               },
     cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+    version: 0,
 });
 
 describe('CellController', () => {
@@ -82,6 +83,7 @@ describe('CellController', () => {
                 value: 1,
             },
             cell: getNetworkObjectCellString({ x: index * 100, y: 0 }),
+            version: 0,
             buildingDesignation: EBuildingDesignation.HOUSE,
         }),
     );
@@ -122,6 +124,7 @@ describe('CellController', () => {
                 value: 1,
             },
             cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+            version: 0,
             acceptedNetworkObjectGroups: [],
         },
     ];
@@ -225,6 +228,8 @@ describe('CellController', () => {
         const cellLock: ICellLock = {
             pauseDate: new Date(+new Date() + 30 * 1000).toISOString(),
             cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+            version: 1,
+            versionCounter: 1,
         };
         runSimulationForAmountOfTime(60 * 1000, 2, cellLock);
     });
@@ -331,6 +336,7 @@ describe('applyStateToNetworkObject', () => {
         },
         state: [],
         cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+        version: 0,
     };
     it('should handle no state changes', () => {
         expect(applyStateToNetworkObject(networkObject)).toEqual(networkObject);

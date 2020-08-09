@@ -29,6 +29,7 @@ describe('Stockpile Controller', () => {
         craftingSeed: 'craftingSeed',
         craftingState: true,
         cell: getNetworkObjectCellString({ x: 0, y: 0 }),
+        version: 0,
     };
 
     it('should create stockpile controller', () => {

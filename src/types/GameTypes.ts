@@ -423,6 +423,13 @@ export interface INetworkObjectBase extends IObject {
      * you can filter only objects that match a specific cell id.
      */
     cell: string;
+    /**
+     * The cell version of the object. There can be multiple versions of the
+     * same object, a [[ICellLock]] document and a [[ICellVersion]] document is
+     * used to reference the network object. A single CellLock per cell is
+     * used to create and destroy CellVersions which reference network objects.
+     */
+    version: number;
 }
 
 export interface INetworkObject extends INetworkObjectBase {
@@ -1272,6 +1279,45 @@ export interface INetworkObjectCellPosition {
 /**
  * Stop all npc actions within a cell for a moment in time while a player changes
  * things within the cell.
+ *
+ * The database will store multiple versions of objects for each cell for large
+ * transactions. The firebase transaction  limit is 500 documents. To change
+ * more than 500 documents, the current version integer is used to compute the
+ * next version integer, which is used to create the new documents, then the
+ * original version integer is updated to the next version integer. The cloud
+ * function can make large edits of more than 500 documents under the next
+ * version integer and a small transaction can be used to change the version
+ * integer to point to the new documents.
+ *
+ * 1) The first step is to lock the cell and create a previous cell version document
+ * in one transaction. The previous cell version flag will be set to creating which
+ * means the cell version is being created.
+ *
+ * If the transaction failed to lock [[ICellLock]], it will throw an error on
+ * player actions and it will loop on automatic computer cell updates until
+ * a successful lock.
+ *
+ * 2) Once the cell is locked, the new documents will be created.
+ *
+ * 3) Once the documents are created, the cell lock is unlocked and the previous
+ * cell version document flag will be changed from creating to created. The
+ * original cell version document flag will be changed to destroying.
+ *
+ * If the cloud function timed out after 60 seconds before unlocking the cell,
+ * The next cloud function will automatically lock the lock. The previous cell
+ * version document with the creating flag will exist in the database for
+ * future deletion. A function will check every minute for existing previous cell
+ * version documents with the creating flag and delete the zombie documents, once
+ * the documents are deleted, the previous cell version document will also be
+ * deleted.
+ *
+ * 4) If the cloud function completed it's update, it will destroy the original
+ * cell version documents.
+ *
+ * If the cloud function timed out after 60 seconds before destroying the
+ * original cell version documents. It will be caught by a scheduled function
+ * checking for the destroying flag with destruction started more than 60
+ * seconds ago. The scheduled function will catch zombie documents.
  */
 export interface ICellLock {
     /**
@@ -1282,6 +1328,52 @@ export interface ICellLock {
      * The cell id that was paused.
      */
     cell: string;
+    /**
+     * The current version of the cell.
+     */
+    version: number;
+    /**
+     * The incremented version of the cell. Used to make unique cell versions.
+     */
+    versionCounter: number;
+}
+
+/**
+ * A record storing a version of a cell, used to delete the cell version later.
+ */
+export interface ICellVersion {
+    /**
+     * The cell version is in the creating state. If set to true and the
+     * cell has timed out, it will be caught by a scheduled cloud function.
+     */
+    creating: boolean;
+    /**
+     * The cell version is in the created state.
+     */
+    created: boolean;
+    /**
+     * The cell version is in the destroying state. If set to true and the cell
+     * has timed out, it will be caught by a scheduled cloud function.
+     */
+    destroying: boolean;
+    /**
+     * The date the cell version begun creation to determine timed out while
+     * creating previous cell version documents.
+     */
+    dateBegunCreate: string;
+    /**
+     * The date the cell version begun destruction to determine timed out while
+     * destroying previous cell version documents.
+     */
+    dateBegunDestroy: string;
+    /**
+     * The cell id.
+     */
+    cell: string;
+    /**
+     * The version number;
+     */
+    version: number;
 }
 
 /**

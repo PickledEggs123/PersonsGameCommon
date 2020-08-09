@@ -118,6 +118,7 @@ export class HarvestResourceController {
             exist: true,
             state: [],
             cell: getNetworkObjectCellString(spawnPosition),
+            version: 0,
         };
         // calculate respawn time, should be from 0.5 to 1.5 times the value in milliseconds.
         const respawnTime = Math.ceil(this.rng.quick() * spawn.spawnTime + spawn.spawnTime * 0.5);

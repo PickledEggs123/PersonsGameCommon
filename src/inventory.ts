@@ -589,6 +589,7 @@ export class InventoryController<T extends IInventoryHolder> {
             exist: true,
             state: [],
             cell: getNetworkObjectCellString(this.inventoryHolder),
+            version: 0,
         };
     }
 

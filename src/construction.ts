@@ -106,6 +106,7 @@ export class ConstructionController<T extends IInventoryHolder> {
             lastUpdate: new Date().toISOString(),
             npcId: this.inventoryController.getHouseId(),
             cell: getNetworkObjectCellString(location),
+            version: 0,
             buildingDesignation: EBuildingDesignation.HOUSE,
         };
     }
@@ -132,6 +133,7 @@ export class ConstructionController<T extends IInventoryHolder> {
                 value: 1,
             },
             cell: getNetworkObjectCellString(l),
+            version: 0,
         };
     }
 
@@ -157,6 +159,7 @@ export class ConstructionController<T extends IInventoryHolder> {
                 value: 1,
             },
             cell: getNetworkObjectCellString(location),
+            version: 0,
         };
     }
 
